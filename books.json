@@ -9,9 +9,9 @@
     "cover": "books/demo-issue/pages/page-01.svg"
   },
   {
-    "slug": "demo-pdf",
-    "title": "Demo Issue (PDF)",
+    "slug": "wnjuly5_compressed",
+    "title": "wnjuly5_compressed",
     "type": "pdf",
-    "file": "books/demo-pdf/source.pdf"
+    "file": "books/demo-pdf/wnjuly5_compressed.pdf"
   }
 ]
