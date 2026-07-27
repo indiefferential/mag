@@ -92,9 +92,36 @@
 <div id="empty">No issues yet — add one to <code>books.json</code>.</div>
 <div id="err">Could not load <code>books.json</code>. If you're testing locally by double-clicking this file, run a local server instead (see README) — browsers block local file fetches.</div>
 
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/legacy/build/pdf.min.js"></script>
 <script>
 (async function(){
+  if (window.pdfjsLib) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/legacy/build/pdf.worker.min.js";
+  }
+
   const grid = document.getElementById('grid');
+
+  async function pdfFirstPageThumb(file, imgEl){
+    try {
+      const pdf = await pdfjsLib.getDocument(file).promise;
+      const page = await pdf.getPage(1);
+      const base = page.getViewport({ scale: 1 });
+      const scale = 400 / base.width;
+      const viewport = page.getViewport({ scale });
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+      imgEl.replaceWith(canvas);
+      canvas.style.width = '100%';
+      canvas.style.height = '100%';
+      canvas.style.display = 'block';
+    } catch (err) {
+      // leave placeholder as-is if rendering fails
+    }
+  }
+
   try {
     const res = await fetch('books.json');
     if (!res.ok) throw new Error('missing');
@@ -106,20 +133,33 @@
     }
 
     books.forEach(b => {
+      const isPdf = b.type === 'pdf';
       const a = document.createElement('a');
       a.className = 'card';
       a.href = `viewer.html?book=${encodeURIComponent(b.slug)}`;
 
+      const pagesLabel = isPdf ? 'PDF' : `${b.totalPages} pages`;
+
       a.innerHTML = `
         <div class="cover">
           <div class="spine"></div>
-          <img src="${b.cover}" alt="${b.title} cover" loading="lazy">
+          <img alt="${b.title} cover" loading="lazy">
         </div>
         <div class="meta">
           <div class="title">${b.title}</div>
-          <div class="pages">${b.totalPages} pages</div>
+          <div class="pages">${pagesLabel}</div>
         </div>
       `;
+      const imgEl = a.querySelector('img');
+
+      if (isPdf && b.cover) {
+        imgEl.src = b.cover;
+      } else if (isPdf) {
+        pdfFirstPageThumb(b.file, imgEl);
+      } else {
+        imgEl.src = b.cover;
+      }
+
       grid.appendChild(a);
     });
   } catch (err) {
