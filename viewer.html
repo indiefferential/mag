@@ -71,6 +71,7 @@
   #book{ box-shadow:0 30px 60px -15px rgba(0,0,0,0.7), 0 10px 25px -5px rgba(0,0,0,0.5); }
   .pf-page{ background:var(--paper); width:100%; height:100%; overflow:hidden; position:relative; }
   .pf-page img{ width:100%; height:100%; object-fit:cover; display:block; pointer-events:none; -webkit-user-drag:none; }
+  .pf-page canvas{ width:100%; height:100%; display:block; pointer-events:none; }
   .pf-page .pf-num{ position:absolute; bottom:10px; font-size:11px; letter-spacing:0.08em; color:#7a6f5c; font-family:Georgia, serif; }
   .pf-page.pf-left .pf-num{ left:16px; }
   .pf-page.pf-right .pf-num{ right:16px; }
@@ -186,8 +187,14 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/page-flip@2.0.7/dist/js/page-flip.browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/legacy/build/pdf.min.js"></script>
 <script>
 (async function(){
+
+  if (window.pdfjsLib) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/legacy/build/pdf.worker.min.js";
+  }
 
   function pad(n){ return String(n).padStart(2,'0'); }
   function showError(msg){
@@ -200,11 +207,17 @@
   const params = new URLSearchParams(location.search);
   const slug = params.get('book');
 
-  let TOTAL_PAGES, PAGE_EXT, PAGE_FOLDER, BOOK_TITLE;
+  let BOOK_TYPE, TOTAL_PAGES, PAGE_EXT, PAGE_FOLDER, PDF_FILE, BOOK_TITLE;
 
   try {
-    if (params.get('folder')) {
-      // Ad-hoc mode: viewer.html?folder=books/wnjuly5/pages&pages=34&ext=jpg&title=WN%20July%205
+    if (params.get('pdf')) {
+      // Ad-hoc PDF mode: viewer.html?pdf=books/wnjuly5/source.pdf&title=WN%20July%205
+      BOOK_TYPE = 'pdf';
+      PDF_FILE = params.get('pdf');
+      BOOK_TITLE = params.get('title') || '';
+    } else if (params.get('folder')) {
+      // Ad-hoc image mode: viewer.html?folder=books/wnjuly5/pages&pages=34&ext=jpg&title=WN%20July%205
+      BOOK_TYPE = 'images';
       PAGE_FOLDER = params.get('folder');
       TOTAL_PAGES = parseInt(params.get('pages') || '34', 10);
       PAGE_EXT = params.get('ext') || 'jpg';
@@ -227,10 +240,15 @@
         if (!entry) { showError('books.json is empty — add at least one book entry.'); return; }
       }
 
-      PAGE_FOLDER = entry.folder;
-      TOTAL_PAGES = entry.totalPages;
-      PAGE_EXT = entry.ext;
+      BOOK_TYPE = entry.type === 'pdf' ? 'pdf' : 'images';
       BOOK_TITLE = entry.title || '';
+      if (BOOK_TYPE === 'pdf') {
+        PDF_FILE = entry.file;
+      } else {
+        PAGE_FOLDER = entry.folder;
+        TOTAL_PAGES = entry.totalPages;
+        PAGE_EXT = entry.ext;
+      }
     }
   } catch (err) {
     showError('Could not load books.json. If you\'re testing locally by double-clicking the file, run a local server instead (see README) — browsers block file: fetches.');
@@ -242,30 +260,72 @@
 
   function pageSrc(n){ return `${PAGE_FOLDER}/page-${pad(n)}.${PAGE_EXT}`; }
 
-  // ---- 2. Build the book ----
-  const bookEl = document.getElementById('book');
-  const pageEls = [];
-  for (let i = 1; i <= TOTAL_PAGES; i++){
+  function makePageShell(i, isCover){
     const div = document.createElement('div');
-    const isCover = (i === 1 || i === TOTAL_PAGES);
     div.className = 'pf-page' + (isCover ? ' pf-cover' : (i % 2 === 0 ? ' pf-left' : ' pf-right'));
     div.setAttribute('data-density', isCover ? 'hard' : 'soft');
-
-    const img = document.createElement('img');
-    img.src = pageSrc(i);
-    img.draggable = false;
-    img.alt = `Page ${i}`;
-    div.appendChild(img);
-
     if (!isCover){
       const num = document.createElement('div');
       num.className = 'pf-num';
       num.textContent = i;
       div.appendChild(num);
     }
+    return div;
+  }
 
-    bookEl.appendChild(div);
-    pageEls.push(div);
+  // ---- 2. Build the book ----
+  const bookEl = document.getElementById('book');
+  const pageEls = [];
+  const loaderLabel = document.querySelector('#loader span');
+
+  if (BOOK_TYPE === 'pdf'){
+    if (!window.pdfjsLib){ showError('pdf.js failed to load — check your internet connection and reload.'); return; }
+    if (loaderLabel) loaderLabel.textContent = 'Rendering pages…';
+
+    let pdf;
+    try {
+      pdf = await pdfjsLib.getDocument(PDF_FILE).promise;
+    } catch (err) {
+      showError(`Could not open the PDF at "${PDF_FILE}". Check the path in books.json and that the file was uploaded.`);
+      return;
+    }
+
+    TOTAL_PAGES = pdf.numPages;
+    const TARGET_WIDTH = 1000; // render resolution per page, in px
+
+    for (let i = 1; i <= TOTAL_PAGES; i++){
+      const isCover = (i === 1 || i === TOTAL_PAGES);
+      const div = makePageShell(i, isCover);
+
+      const page = await pdf.getPage(i);
+      const baseViewport = page.getViewport({ scale: 1 });
+      const scale = TARGET_WIDTH / baseViewport.width;
+      const viewport = page.getViewport({ scale });
+
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const ctx = canvas.getContext('2d');
+      await page.render({ canvasContext: ctx, viewport }).promise;
+
+      div.insertBefore(canvas, div.firstChild);
+      bookEl.appendChild(div);
+      pageEls.push(div);
+    }
+  } else {
+    for (let i = 1; i <= TOTAL_PAGES; i++){
+      const isCover = (i === 1 || i === TOTAL_PAGES);
+      const div = makePageShell(i, isCover);
+
+      const img = document.createElement('img');
+      img.src = pageSrc(i);
+      img.draggable = false;
+      img.alt = `Page ${i}`;
+      div.insertBefore(img, div.firstChild);
+
+      bookEl.appendChild(div);
+      pageEls.push(div);
+    }
   }
 
   const SINGLE_W = 560, SINGLE_H = 760;
