@@ -1,0 +1,17 @@
+[
+  {
+    "slug": "demo-issue",
+    "title": "Demo Issue (images)",
+    "type": "images",
+    "folder": "books/demo-issue/pages",
+    "totalPages": 34,
+    "ext": "svg",
+    "cover": "books/demo-issue/pages/page-01.svg"
+  },
+  {
+    "slug": "demo-pdf",
+    "title": "Demo Issue (PDF)",
+    "type": "pdf",
+    "file": "books/demo-pdf/source.pdf"
+  }
+]
