@@ -1,157 +1,381 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Magazine Viewer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Magazine Flipbook</title>
+
+<!-- ============================================================
+     HOW TO USE THIS FILE
+     1. Put your page images in the /pages folder, named:
+        page-01.jpg, page-02.jpg, page-03.jpg ... page-34.jpg
+        (2-digit numbers, so page-01 not page-1)
+     2. If your page count changes, edit TOTAL_PAGES below.
+     3. If your images aren't .jpg, edit PAGE_EXT below.
+     4. Upload this whole folder (index.html + /pages) to GitHub,
+        then embed with an <iframe src="...index.html"></iframe>
+        on your site.
+     ============================================================ -->
+
 <style>
-  body {
-    margin: 0;
-    background: #111;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    font-family: sans-serif;
-    position: relative;
+  :root{
+    --ink:#161311;
+    --paper:#ece5d6;
+    --gold:#b08d4f;
+    --gold-bright:#d4af6a;
+    --panel:#0f0d0c;
+    --panel-2:#1c1815;
+    --line:rgba(212,175,106,0.18);
   }
 
-  .magazine {
-    display: flex;
-    justify-content: center;
-    width: 100%;
-    max-width: 1200px;
-    height: auto;
-    gap: 0;
+  *{ box-sizing:border-box; }
+
+  html,body{
+    margin:0; padding:0; width:100%; height:100%;
+    background:var(--ink);
+    overflow:hidden;
+    font-family:'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif;
+    -webkit-user-select:none; user-select:none;
   }
 
-  .page {
-    flex: 1;
-    height: auto;
-    background: #000;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 0;
-    box-shadow: none;
+  /* subtle vignette / stage backdrop so the book feels displayed, not floating on flat color */
+  #stage{
+    position:relative;
+    width:100%; height:100%;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:
+      radial-gradient(ellipse at 50% 40%, #262019 0%, #161311 62%, #0b0a08 100%);
   }
 
-  .page img {
-    width: 100%;
-    height: auto;
-    object-fit: contain;
-    background: #000;
-    display: block;
+  #stage::before{
+    content:"";
+    position:absolute; inset:0;
+    background:
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px);
+    pointer-events:none;
+    opacity:0.5;
   }
 
-  .button {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    background: rgba(96,165,250,0.8);
-    color: #021024;
-    border: none;
-    padding: 12px 18px;
-    cursor: pointer;
-    border-radius: 8px;
-    font-weight: bold;
-    z-index: 1000;
+  #bookWrap{
+    position:relative;
+    display:flex; align-items:center; justify-content:center;
+    width:100%;
+    flex:1 1 auto;
+    min-height:0;
+    padding:56px 92px 24px;
   }
-  .prev { left: 20px; }
-  .next { right: 20px; }
 
-  @media (max-width: 768px) {
-    body { padding: 10px; min-height: auto; }
-    .magazine { width: 100%; height: auto; }
-    .page { flex: 1; height: auto; }
-    .button.prev { left: 10px; }
-    .button.next { right: 10px; }
+  #book{
+    box-shadow:
+      0 30px 60px -15px rgba(0,0,0,0.7),
+      0 10px 25px -5px rgba(0,0,0,0.5);
+  }
+
+  /* page face styling — applies inside the page-flip canvas via injected page markup */
+  .pf-page{
+    background:var(--paper);
+    width:100%; height:100%;
+    overflow:hidden;
+    position:relative;
+  }
+  .pf-page img{
+    width:100%; height:100%;
+    object-fit:cover;
+    display:block;
+    pointer-events:none;
+    -webkit-user-drag:none;
+  }
+  .pf-page .pf-num{
+    position:absolute;
+    bottom:10px;
+    font-size:11px;
+    letter-spacing:0.08em;
+    color:#7a6f5c;
+    font-family:Georgia, serif;
+  }
+  .pf-page.pf-left .pf-num{ left:16px; }
+  .pf-page.pf-right .pf-num{ right:16px; }
+  .pf-page.pf-cover{
+    background:linear-gradient(160deg,#221c15,#171310);
+  }
+
+  /* nav arrows */
+  .navBtn{
+    position:absolute; top:50%; transform:translateY(-50%);
+    width:52px; height:52px;
+    border-radius:50%;
+    border:1px solid var(--line);
+    background:rgba(20,17,14,0.55);
+    backdrop-filter:blur(6px);
+    color:var(--gold-bright);
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+    transition:background .2s ease, transform .2s ease, border-color .2s ease;
+    z-index:5;
+  }
+  .navBtn:hover{ background:rgba(212,175,106,0.14); border-color:var(--gold-bright); }
+  .navBtn:active{ transform:translateY(-50%) scale(0.94); }
+  .navBtn.disabled{ opacity:0.25; pointer-events:none; }
+  #prevBtn{ left:24px; }
+  #nextBtn{ right:24px; }
+  .navBtn svg{ width:20px; height:20px; }
+
+  /* bottom control bar */
+  #bar{
+    flex:0 0 auto;
+    width:100%;
+    display:flex; align-items:center; justify-content:center;
+    gap:18px;
+    padding:12px 20px 18px;
+    color:var(--gold-bright);
+  }
+  #bar .divider{ width:1px; height:18px; background:var(--line); }
+
+  .iconBtn{
+    background:none; border:none; cursor:pointer;
+    color:#cabf9f;
+    display:flex; align-items:center; justify-content:center;
+    width:34px; height:34px;
+    border-radius:8px;
+    transition:color .15s ease, background .15s ease;
+  }
+  .iconBtn:hover{ color:var(--gold-bright); background:rgba(212,175,106,0.1); }
+  .iconBtn svg{ width:18px; height:18px; }
+
+  #pageIndicator{
+    font-size:13px;
+    letter-spacing:0.05em;
+    color:#cabf9f;
+    min-width:82px;
+    text-align:center;
+    font-variant-numeric:tabular-nums;
+  }
+
+  /* progress rail */
+  #rail{
+    position:relative;
+    width:220px; height:3px;
+    background:rgba(212,175,106,0.15);
+    border-radius:2px;
+    overflow:hidden;
+    cursor:pointer;
+  }
+  #railFill{
+    position:absolute; left:0; top:0; bottom:0;
+    width:0%;
+    background:linear-gradient(90deg, var(--gold), var(--gold-bright));
+    transition:width .35s cubic-bezier(.4,0,.2,1);
+  }
+
+  /* loading state */
+  #loader{
+    position:absolute; inset:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:14px;
+    color:#8a7d61;
+    z-index:20;
+    background:radial-gradient(ellipse at 50% 40%, #221c15 0%, #161311 70%);
+    transition:opacity .5s ease;
+  }
+  #loader .ring{
+    width:34px; height:34px;
+    border-radius:50%;
+    border:2px solid rgba(212,175,106,0.2);
+    border-top-color:var(--gold-bright);
+    animation:spin 0.9s linear infinite;
+  }
+  #loader span{ font-size:12px; letter-spacing:0.15em; text-transform:uppercase; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  /* keyboard focus visibility */
+  button:focus-visible{ outline:2px solid var(--gold-bright); outline-offset:2px; }
+
+  /* fullscreen mode fills stage */
+  #stage:fullscreen{ background:var(--ink); }
+  #stage:-webkit-full-screen{ background:var(--ink); }
+
+  @media (max-width: 720px){
+    #bookWrap{ padding:16px 8px 8px; }
+    #prevBtn{ left:6px; width:40px; height:40px; }
+    #nextBtn{ right:6px; width:40px; height:40px; }
+    #bar{ gap:10px; }
+    #rail{ width:110px; }
+    #pageIndicator{ min-width:60px; font-size:12px; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    #loader .ring{ animation-duration:1.6s; }
   }
 </style>
 </head>
 <body>
 
-<div class="magazine">
-  <div class="page"><img id="pageLeft" src="" alt="Page Left"></div>
-  <div class="page"><img id="pageRight" src="" alt="Page Right"></div>
+<div id="stage">
+  <div id="loader">
+    <div class="ring"></div>
+    <span>Opening book…</span>
+  </div>
+
+  <div id="bookWrap">
+    <button id="prevBtn" class="navBtn" aria-label="Previous page" title="Previous page">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+    </button>
+
+    <div id="book"></div>
+
+    <button id="nextBtn" class="navBtn" aria-label="Next page" title="Next page">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+    </button>
+  </div>
+
+  <div id="bar">
+    <button id="firstBtn" class="iconBtn" aria-label="First page" title="First page">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 17 6 12 11 7"></polyline><polyline points="18 17 13 12 18 7"></polyline></svg>
+    </button>
+
+    <span id="pageIndicator">1 / 34</span>
+
+    <div id="rail"><div id="railFill"></div></div>
+
+    <button id="lastBtn" class="iconBtn" aria-label="Last page" title="Last page">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 17 18 12 13 7"></polyline><polyline points="6 17 11 12 6 7"></polyline></svg>
+    </button>
+
+    <div class="divider"></div>
+
+    <button id="fsBtn" class="iconBtn" aria-label="Toggle fullscreen" title="Fullscreen">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"></path></svg>
+    </button>
+  </div>
 </div>
 
-<button class="button prev" onclick="prevPage()">◀</button>
-<button class="button next" onclick="nextPage()">▶</button>
-
+<script src="https://cdn.jsdelivr.net/npm/page-flip@2.0.7/dist/js/page-flip.browser.min.js"></script>
 <script>
-  const folder = new URLSearchParams(window.location.search).get('magazine') || 'wnsep2';
-  const totalPages = 34;
+(function(){
 
-  // Generate both possible filenames: "1.jpg", "page01.jpg"
-  const pages = [];
-  for (let i = 1; i <= totalPages; i++) {
-    const digits = String(totalPages).length; // auto detect width
-    const numWithZeros = String(i).padStart(digits, '0');
+  // ============ CONFIG — edit these two lines when you add pages ============
+  const TOTAL_PAGES = 34;        // how many page images you have
+  const PAGE_EXT    = "jpg";     // "jpg", "png", etc. (demo placeholders are .svg — see note below)
+  const PAGE_FOLDER = "pages";
+  const DEMO_MODE   = true;      // true = load the bundled placeholder .svg pages so the book works out of the box.
+                                  // Set to false once you've dropped in your own page-01.jpg ... page-NN.jpg files.
+  // ============================================================================
 
-    // Try numeric filename first
-    pages.push(`${folder}/${i}.jpg`);
+  function pad(n){ return String(n).padStart(2,'0'); }
 
-    // Then try "page" prefix with zeros
-    pages.push(`${folder}/page${numWithZeros}.jpg`);
+  function pageSrc(n){
+    if (DEMO_MODE) return `${PAGE_FOLDER}/page-${pad(n)}.svg`;
+    return `${PAGE_FOLDER}/page-${pad(n)}.${PAGE_EXT}`;
   }
 
-  let currentIndex = 0;
+  const bookEl = document.getElementById('book');
 
-  function updatePages() {
-    const left = document.getElementById('pageLeft');
-    const right = document.getElementById('pageRight');
+  // Build the page DOM nodes the library will flip.
+  const pageEls = [];
+  for (let i = 1; i <= TOTAL_PAGES; i++){
+    const div = document.createElement('div');
+    const isCover = (i === 1 || i === TOTAL_PAGES);
+    div.className = 'pf-page' + (isCover ? ' pf-cover' : (i % 2 === 0 ? ' pf-left' : ' pf-right'));
+    div.setAttribute('data-density', isCover ? 'hard' : 'soft');
 
-    // Helper to find which filename actually exists
-    function findValidSrc(possible) {
-      for (const src of possible) {
-        const img = new Image();
-        img.src = src;
-        // Image existence is async, so we just return first; browser will fail silently if missing
-        return src;
-      }
+    const img = document.createElement('img');
+    img.src = pageSrc(i);
+    img.draggable = false;
+    img.alt = `Page ${i}`;
+    div.appendChild(img);
+
+    if (!isCover){
+      const num = document.createElement('div');
+      num.className = 'pf-num';
+      num.textContent = i;
+      div.appendChild(num);
     }
 
-    // Determine left and right pages
-    if (currentIndex === 0) {
-      left.style.display = "none";
-      right.style.display = "block";
-      right.src = findValidSrc([pages[0], pages[1]]);
-    } else if (currentIndex >= totalPages - 1) {
-      left.style.display = "block";
-      right.style.display = "none";
-      left.src = findValidSrc([pages[(totalPages - 1)*2], pages[(totalPages - 1)*2 + 1]]);
-    } else {
-      left.style.display = "block";
-      right.style.display = "block";
-      left.src = findValidSrc([pages[currentIndex*2], pages[currentIndex*2 + 1]]);
-      right.src = findValidSrc([pages[(currentIndex + 1)*2], pages[(currentIndex + 1)*2 + 1]]);
-    }
+    bookEl.appendChild(div);
+    pageEls.push(div);
   }
 
-  function nextPage() {
-    if (currentIndex === 0) currentIndex = 1;
-    else if (currentIndex + 2 < totalPages) currentIndex += 2;
-    else currentIndex = totalPages - 1;
-    updatePages();
-  }
+  // Sizing: a nice magazine-ish portrait ratio per single page.
+  const SINGLE_W = 560, SINGLE_H = 760;
 
-  function prevPage() {
-    if (currentIndex === 1) currentIndex = 0;
-    else if (currentIndex - 2 >= 1) currentIndex -= 2;
-    else if (currentIndex === totalPages - 1) currentIndex = totalPages - 2;
-    updatePages();
-  }
-
-  window.addEventListener('keydown', e => {
-    if (e.key === 'ArrowLeft') prevPage();
-    if (e.key === 'ArrowRight') nextPage();
+  const pageFlip = new St.PageFlip(bookEl, {
+    width: SINGLE_W,
+    height: SINGLE_H,
+    size: 'stretch',
+    minWidth: 280,
+    maxWidth: 1100,
+    minHeight: 400,
+    maxHeight: 1500,
+    maxShadowOpacity: 0.55,
+    showCover: true,            // page 1 and last page render alone, as covers
+    mobileScrollSupport: false,
+    usePortrait: true,          // auto single-page on narrow screens
+    flippingTime: 700,
+    drawShadow: true,
   });
 
-  updatePages();
-</script>
+  pageFlip.loadFromHTML(pageEls);
 
+  // ---- UI wiring ----
+  const loader = document.getElementById('loader');
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  const firstBtn = document.getElementById('firstBtn');
+  const lastBtn = document.getElementById('lastBtn');
+  const fsBtn = document.getElementById('fsBtn');
+  const indicator = document.getElementById('pageIndicator');
+  const rail = document.getElementById('rail');
+  const railFill = document.getElementById('railFill');
+  const stage = document.getElementById('stage');
+
+  function updateUI(){
+    const cur = pageFlip.getCurrentPageIndex();
+    const total = pageFlip.getPageCount();
+    indicator.textContent = `${cur + 1} / ${total}`;
+    railFill.style.width = `${((cur + 1) / total) * 100}%`;
+    prevBtn.classList.toggle('disabled', cur <= 0);
+    nextBtn.classList.toggle('disabled', cur >= total - 1);
+  }
+
+  pageFlip.on('init', () => {
+    updateUI();
+    loader.style.opacity = '0';
+    setTimeout(() => { loader.style.display = 'none'; }, 500);
+  });
+  pageFlip.on('flip', updateUI);
+
+  prevBtn.addEventListener('click', () => pageFlip.flipPrev());
+  nextBtn.addEventListener('click', () => pageFlip.flipNext());
+  firstBtn.addEventListener('click', () => pageFlip.flip(0));
+  lastBtn.addEventListener('click', () => pageFlip.flip(pageFlip.getPageCount() - 1));
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight') pageFlip.flipNext();
+    if (e.key === 'ArrowLeft') pageFlip.flipPrev();
+  });
+
+  rail.addEventListener('click', (e) => {
+    const rect = rail.getBoundingClientRect();
+    const ratio = (e.clientX - rect.left) / rect.width;
+    const target = Math.round(ratio * (pageFlip.getPageCount() - 1));
+    pageFlip.flip(target);
+  });
+
+  fsBtn.addEventListener('click', () => {
+    if (!document.fullscreenElement){
+      stage.requestFullscreen?.() || stage.webkitRequestFullscreen?.();
+    } else {
+      document.exitFullscreen?.() || document.webkitExitFullscreen?.();
+    }
+  });
+
+  // Basic copy-discouragement: block right-click / drag on the book area.
+  // (Note: this deters casual copying only — it can't make images fully uncopyable
+  // in a browser. See the README for context.)
+  bookEl.addEventListener('contextmenu', (e) => e.preventDefault());
+  bookEl.addEventListener('dragstart', (e) => e.preventDefault());
+
+})();
+</script>
 </body>
 </html>
