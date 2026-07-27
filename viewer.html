@@ -291,12 +291,22 @@
     }
 
     TOTAL_PAGES = pdf.numPages;
-    const TARGET_WIDTH = 1000; // render resolution per page, in px
+    const TARGET_WIDTH = 850; // render resolution per page, in px — lower = faster
 
-    for (let i = 1; i <= TOTAL_PAGES; i++){
-      const isCover = (i === 1 || i === TOTAL_PAGES);
-      const div = makePageShell(i, isCover);
+    if (loaderLabel) loaderLabel.textContent = `Rendering page 0 / ${TOTAL_PAGES}…`;
 
+    // Reassure on slow connections / big files instead of looking frozen.
+    const slowTimer = setTimeout(() => {
+      if (loaderLabel) loaderLabel.textContent += ' (large file — still working)';
+    }, 12000);
+    const verySlowTimer = setTimeout(() => {
+      if (loaderLabel) loaderLabel.textContent = 'Still rendering — if this doesn\'t finish soon, the PDF may be too large. Try compressing it further.';
+    }, 40000);
+
+    let renderedCount = 0;
+    const canvasResults = new Array(TOTAL_PAGES);
+
+    async function renderOnePage(i){
       const page = await pdf.getPage(i);
       const baseViewport = page.getViewport({ scale: 1 });
       const scale = TARGET_WIDTH / baseViewport.width;
@@ -308,23 +318,58 @@
       const ctx = canvas.getContext('2d');
       await page.render({ canvasContext: ctx, viewport }).promise;
 
-      div.insertBefore(canvas, div.firstChild);
+      canvasResults[i - 1] = canvas;
+      renderedCount++;
+      if (loaderLabel) loaderLabel.textContent = `Rendering page ${renderedCount} / ${TOTAL_PAGES}…`;
+    }
+
+    try {
+      // Render a handful of pages at once instead of one-by-one — much faster,
+      // still gentle enough not to choke the browser on a big magazine.
+      const CONCURRENCY = 4;
+      let nextIndex = 1;
+      async function worker(){
+        while (nextIndex <= TOTAL_PAGES){
+          const i = nextIndex++;
+          await renderOnePage(i);
+        }
+      }
+      await Promise.all(Array.from({ length: Math.min(CONCURRENCY, TOTAL_PAGES) }, worker));
+    } catch (err) {
+      clearTimeout(slowTimer); clearTimeout(verySlowTimer);
+      console.error(err);
+      showError(`Something went wrong rendering the PDF (${err.message || err}). Try a smaller/more compressed file, or reload.`);
+      return;
+    }
+
+    clearTimeout(slowTimer); clearTimeout(verySlowTimer);
+
+    for (let i = 1; i <= TOTAL_PAGES; i++){
+      const isCover = (i === 1 || i === TOTAL_PAGES);
+      const div = makePageShell(i, isCover);
+      div.insertBefore(canvasResults[i - 1], div.firstChild);
       bookEl.appendChild(div);
       pageEls.push(div);
     }
   } else {
-    for (let i = 1; i <= TOTAL_PAGES; i++){
-      const isCover = (i === 1 || i === TOTAL_PAGES);
-      const div = makePageShell(i, isCover);
+    try {
+      for (let i = 1; i <= TOTAL_PAGES; i++){
+        const isCover = (i === 1 || i === TOTAL_PAGES);
+        const div = makePageShell(i, isCover);
 
-      const img = document.createElement('img');
-      img.src = pageSrc(i);
-      img.draggable = false;
-      img.alt = `Page ${i}`;
-      div.insertBefore(img, div.firstChild);
+        const img = document.createElement('img');
+        img.src = pageSrc(i);
+        img.draggable = false;
+        img.alt = `Page ${i}`;
+        div.insertBefore(img, div.firstChild);
 
-      bookEl.appendChild(div);
-      pageEls.push(div);
+        bookEl.appendChild(div);
+        pageEls.push(div);
+      }
+    } catch (err) {
+      console.error(err);
+      showError(`Something went wrong loading the page images (${err.message || err}). Check the folder path and file names in books.json.`);
+      return;
     }
   }
 
