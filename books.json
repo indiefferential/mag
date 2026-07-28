@@ -18,5 +18,35 @@
     "ext": "jpg",
     "pattern": "page{n}",
     "cover": "books/wnjuly4/pages/page01.jpg"
+  },
+  {
+    "slug": "wnjuly3",
+    "title": "WN — July 3",
+    "type": "images",
+    "folder": "books/wnjuly3/pages",
+    "totalPages": 34,
+    "ext": "jpg",
+    "pattern": "page{n}",
+    "cover": "books/wnjuly4/pages/page01.jpg"
+  },
+  {
+    "slug": "wnjuly2",
+    "title": "WN — July 2",
+    "type": "images",
+    "folder": "books/wnjuly2/pages",
+    "totalPages": 34,
+    "ext": "jpg",
+    "pattern": "page{n}",
+    "cover": "books/wnjuly4/pages/page01.jpg"
+  },
+  {
+    "slug": "wnjuly1",
+    "title": "WN — July 1",
+    "type": "images",
+    "folder": "books/wnjuly1/pages",
+    "totalPages": 34,
+    "ext": "jpg",
+    "pattern": "page{n}",
+    "cover": "books/wnjuly4/pages/page01.jpg"
   }
 ]
