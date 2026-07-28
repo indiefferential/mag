@@ -66,12 +66,28 @@
     position:relative;
     display:flex; align-items:center; justify-content:center;
     width:100%; flex:1 1 auto; min-height:0;
-    padding:56px 92px 24px;
+    padding:clamp(8px, 6vh, 56px) clamp(20px, 8vw, 92px) clamp(4px, 2vh, 24px);
+    overflow:hidden;
   }
-  #book{ box-shadow:0 30px 60px -15px rgba(0,0,0,0.7), 0 10px 25px -5px rgba(0,0,0,0.5); }
+  #book{
+    box-shadow:0 30px 60px -15px rgba(0,0,0,0.7), 0 10px 25px -5px rgba(0,0,0,0.5);
+    transition:transform .06s linear;
+    transform-origin:center center;
+    will-change:transform;
+  }
+  #book.zoomed{ cursor:grab; }
+  #book.panning{ cursor:grabbing; transition:none; }
+  #panOverlay{
+    position:absolute; inset:0;
+    pointer-events:none;
+    z-index:4;
+    touch-action:none;
+  }
+  #panOverlay.active{ pointer-events:auto; cursor:grab; }
+  #panOverlay.panning{ cursor:grabbing; }
   .pf-page{ background:var(--paper); width:100%; height:100%; overflow:hidden; position:relative; }
-  .pf-page img{ width:100%; height:100%; object-fit:cover; display:block; pointer-events:none; -webkit-user-drag:none; }
-  .pf-page canvas{ width:100%; height:100%; display:block; pointer-events:none; }
+  .pf-page img{ width:100%; height:100%; object-fit:contain; display:block; pointer-events:none; -webkit-user-drag:none; }
+  .pf-page canvas{ width:100%; height:100%; object-fit:contain; display:block; pointer-events:none; }
   .pf-page .pf-num{ position:absolute; bottom:10px; font-size:11px; letter-spacing:0.08em; color:#7a6f5c; font-family:Georgia, serif; }
   .pf-page.pf-left .pf-num{ left:16px; }
   .pf-page.pf-right .pf-num{ right:16px; }
@@ -137,6 +153,27 @@
     #rail{ width:110px; }
     #pageIndicator{ min-width:60px; font-size:12px; }
   }
+  /* Short embeds (e.g. a small iframe) — shrink chrome so the book gets the room */
+  @media (max-height: 420px){
+    #topBar{ padding:6px 10px; }
+    #homeLink{ font-size:10px; }
+    #bookTitle{ font-size:11px; }
+    #bookWrap{ padding:30px 44px 4px; }
+    .navBtn{ width:34px; height:34px; }
+    #prevBtn{ left:6px; }
+    #nextBtn{ right:6px; }
+    .navBtn svg{ width:15px; height:15px; }
+    #bar{ padding:4px 10px 8px; gap:8px; }
+    .iconBtn{ width:26px; height:26px; }
+    .iconBtn svg{ width:14px; height:14px; }
+    #rail{ width:70px; }
+    #pageIndicator{ min-width:52px; font-size:11px; }
+  }
+  #zoomLevel{
+    font-size:12px; letter-spacing:0.04em; color:#cabf9f;
+    min-width:38px; text-align:center; font-variant-numeric:tabular-nums;
+  }
+  #expandBtn{ display:flex; align-items:center; gap:6px; }
 </style>
 </head>
 <body>
@@ -165,6 +202,7 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
     </button>
     <div id="book"></div>
+    <div id="panOverlay"></div>
     <button id="nextBtn" class="navBtn" aria-label="Next page" title="Next page">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
     </button>
@@ -180,8 +218,19 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 17 18 12 13 7"></polyline><polyline points="6 17 11 12 6 7"></polyline></svg>
     </button>
     <div class="divider"></div>
+    <button id="zoomOutBtn" class="iconBtn" aria-label="Zoom out" title="Zoom out">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
+    </button>
+    <span id="zoomLevel">100%</span>
+    <button id="zoomInBtn" class="iconBtn" aria-label="Zoom in" title="Zoom in">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
+    </button>
+    <div class="divider"></div>
     <button id="fsBtn" class="iconBtn" aria-label="Toggle fullscreen" title="Fullscreen">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"></path></svg>
+    </button>
+    <button id="expandBtn" class="iconBtn" aria-label="Open full page in new tab" title="Open full page in new tab">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
     </button>
   </div>
 </div>
@@ -373,16 +422,18 @@
     }
   }
 
-  const SINGLE_W = 560, SINGLE_H = 760;
+  // US Letter aspect ratio (612 x 792 pt = 8.5" x 11") — keeps single pages
+  // and double-page spreads proportioned correctly instead of stretched.
+  const SINGLE_W = 612, SINGLE_H = 792;
 
   const pageFlip = new St.PageFlip(bookEl, {
     width: SINGLE_W,
     height: SINGLE_H,
     size: 'stretch',
-    minWidth: 280,
-    maxWidth: 1100,
-    minHeight: 400,
-    maxHeight: 1500,
+    minWidth: 180,
+    maxWidth: 1000,
+    minHeight: 233,
+    maxHeight: 1294,
     maxShadowOpacity: 0.55,
     showCover: true,
     mobileScrollSupport: false,
@@ -446,8 +497,115 @@
     }
   });
 
+  document.getElementById('expandBtn').addEventListener('click', () => {
+    window.open(location.href, '_blank', 'noopener');
+  });
+
   bookEl.addEventListener('contextmenu', (e) => e.preventDefault());
   bookEl.addEventListener('dragstart', (e) => e.preventDefault());
+
+  // ---- 4. Zoom & pan ----
+  // Zoom is a visual scale on top of the flipbook. At zoom 1 (default),
+  // dragging a page corner flips it as normal. Once zoomed in, dragging
+  // pans around the enlarged page instead (page flip buttons still work).
+  const zoomLevelEl = document.getElementById('zoomLevel');
+  const zoomInBtn = document.getElementById('zoomInBtn');
+  const zoomOutBtn = document.getElementById('zoomOutBtn');
+  const bookWrap = document.getElementById('bookWrap');
+  const panOverlay = document.getElementById('panOverlay');
+  const MIN_ZOOM = 1, MAX_ZOOM = 3;
+  let zoom = 1, panX = 0, panY = 0;
+
+  function clampPan(){
+    const wrap = bookWrap.getBoundingClientRect();
+    const maxX = Math.max(0, (wrap.width * (zoom - 1)) / 2);
+    const maxY = Math.max(0, (wrap.height * (zoom - 1)) / 2);
+    panX = Math.min(maxX, Math.max(-maxX, panX));
+    panY = Math.min(maxY, Math.max(-maxY, panY));
+  }
+
+  function applyZoom(){
+    clampPan();
+    bookEl.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
+    const isZoomed = zoom > 1;
+    bookEl.classList.toggle('zoomed', isZoomed);
+    // While zoomed, hand pointer events to the pan overlay so dragging
+    // never gets picked up by page-flip's own corner-drag gesture.
+    bookEl.style.pointerEvents = isZoomed ? 'none' : '';
+    panOverlay.classList.toggle('active', isZoomed);
+    zoomLevelEl.textContent = `${Math.round(zoom * 100)}%`;
+    zoomOutBtn.classList.toggle('disabled', zoom <= MIN_ZOOM);
+    zoomInBtn.classList.toggle('disabled', zoom >= MAX_ZOOM);
+  }
+
+  function setZoom(next){
+    const clamped = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, next));
+    if (clamped === 1){ panX = 0; panY = 0; }
+    zoom = clamped;
+    applyZoom();
+  }
+
+  zoomInBtn.addEventListener('click', () => setZoom(zoom + 0.5));
+  zoomOutBtn.addEventListener('click', () => setZoom(zoom - 0.5));
+
+  bookWrap.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.25 : 0.25;
+    setZoom(zoom + delta);
+  }, { passive: false });
+
+  // Drag to pan (only reachable when zoomed — overlay is inert otherwise)
+  let dragging = false, dragStartX = 0, dragStartY = 0, panStartX = 0, panStartY = 0;
+
+  panOverlay.addEventListener('pointerdown', (e) => {
+    dragging = true;
+    panOverlay.classList.add('panning');
+    dragStartX = e.clientX; dragStartY = e.clientY;
+    panStartX = panX; panStartY = panY;
+    panOverlay.setPointerCapture(e.pointerId);
+  });
+  panOverlay.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    panX = panStartX + (e.clientX - dragStartX);
+    panY = panStartY + (e.clientY - dragStartY);
+    applyZoom();
+  });
+  function endDrag(){
+    if (!dragging) return;
+    dragging = false;
+    panOverlay.classList.remove('panning');
+  }
+  panOverlay.addEventListener('pointerup', endDrag);
+  panOverlay.addEventListener('pointercancel', endDrag);
+  panOverlay.addEventListener('dblclick', () => setZoom(1));
+
+  // Pinch to zoom (touch) — listens on bookWrap since the overlay is
+  // inert at zoom 1, but a pinch is exactly how you'd zoom in from there.
+  let pinchStartDist = null, pinchStartZoom = 1;
+  bookWrap.addEventListener('touchmove', (e) => {
+    if (e.touches.length !== 2) return;
+    e.preventDefault();
+    const [t1, t2] = e.touches;
+    const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+    if (pinchStartDist === null){
+      pinchStartDist = dist;
+      pinchStartZoom = zoom;
+      return;
+    }
+    setZoom(pinchStartZoom * (dist / pinchStartDist));
+  }, { passive: false });
+  bookWrap.addEventListener('touchend', (e) => {
+    if (e.touches.length < 2) pinchStartDist = null;
+  });
+
+  // Double-click on the book itself (zoom 1) to zoom in
+  bookEl.addEventListener('dblclick', () => setZoom(2));
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key === '+' || e.key === '=') setZoom(zoom + 0.5);
+    if (e.key === '-') setZoom(zoom - 0.5);
+    if (e.key === '0') setZoom(1);
+  });
 
 })();
 </script>
