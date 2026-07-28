@@ -503,6 +503,20 @@
     }
   });
 
+  // Entering/exiting fullscreen changes the available box size. Reset any
+  // zoom/pan (it was sized for the old box) and nudge the book to
+  // recompute against the new one — some browsers don't reliably fire a
+  // resize/ResizeObserver tick right at the fullscreen transition.
+  function handleFullscreenChange(){
+    setZoom(1);
+    setTimeout(() => {
+      window.dispatchEvent(new Event('resize'));
+      if (typeof pageFlip.update === 'function') pageFlip.update();
+    }, 150);
+  }
+  document.addEventListener('fullscreenchange', handleFullscreenChange);
+  document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+
   document.getElementById('expandBtn').addEventListener('click', () => {
     window.open(location.href, '_blank', 'noopener');
   });
@@ -519,7 +533,7 @@
   const zoomOutBtn = document.getElementById('zoomOutBtn');
   const bookWrap = document.getElementById('bookWrap');
   const panOverlay = document.getElementById('panOverlay');
-  const MIN_ZOOM = 1, MAX_ZOOM = 3;
+  const MIN_ZOOM = 0.5, MAX_ZOOM = 3;
   let zoom = 1, panX = 0, panY = 0;
 
   function clampPan(){
