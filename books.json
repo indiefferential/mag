@@ -1,7 +1,7 @@
 [
   {
     "slug": "wnjuly5",
-    "title": "What's New July Vol .5",
+    "title": "WN — July 5",
     "type": "images",
     "folder": "books/wnjuly5/pages",
     "totalPages": 34,
@@ -10,12 +10,19 @@
     "cover": "books/wnjuly5/pages/page01.jpg"
   },
   {
+    "slug": "wnjuly5_compressed",
+    "title": "WN July 5 (PDF)",
+    "type": "pdf",
+    "file": "books/demo-pdf/wnjuly5_compressed.pdf"
+  },
+  {
     "slug": "wnjuly4",
-    "title": "What's New July Vol .4",
+    "title": "WN — July 4",
     "type": "images",
     "folder": "books/wnjuly4/pages",
     "totalPages": 34,
     "ext": "jpg",
     "pattern": "page{n}",
-    "cover": "books/wnjuly5/pages/page01.jpg"
-  },
+    "cover": "books/wnjuly4/pages/page01.jpg"
+  }
+]
