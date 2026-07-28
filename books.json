@@ -17,7 +17,7 @@
     "totalPages": 34,
     "ext": "jpg",
     "pattern": "page{n}",
-    "cover": "books/wnjuly4/pages/page01.jpg"
+    "cover": "books/wnjuly3/pages/page01.jpg"
   },
   {
     "slug": "wnjuly3",
@@ -27,7 +27,7 @@
     "totalPages": 34,
     "ext": "jpg",
     "pattern": "page{n}",
-    "cover": "books/wnjuly4/pages/page01.jpg"
+    "cover": "books/wnjuly3/pages/page01.jpg"
   },
   {
     "slug": "wnjuly2",
@@ -37,7 +37,7 @@
     "totalPages": 34,
     "ext": "jpg",
     "pattern": "page{n}",
-    "cover": "books/wnjuly4/pages/page01.jpg"
+    "cover": "books/wnjuly2/pages/page01.jpg"
   },
   {
     "slug": "wnjuly1",
@@ -47,6 +47,6 @@
     "totalPages": 34,
     "ext": "jpg",
     "pattern": "page{n}",
-    "cover": "books/wnjuly4/pages/page01.jpg"
+    "cover": "books/wnjuly1/pages/page01.jpg"
   }
 ]
