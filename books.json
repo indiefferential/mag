@@ -1,16 +1,17 @@
-{
-  "slug": "wnjuly5",
-  "title": "WN — July 5",
-  "type": "images",
-  "folder": "books/wnjuly5/pages",
-  "totalPages": 34,
-  "ext": "jpg",
-  "pattern": "page{n}",
-  "cover": "books/wnjuly5/pages/page01.jpg"
-},
+[
+  {
+    "slug": "wnjuly5",
+    "title": "WN — July 5",
+    "type": "images",
+    "folder": "books/wnjuly5/pages",
+    "totalPages": 34,
+    "ext": "jpg",
+    "pattern": "page{n}",
+    "cover": "books/wnjuly5/pages/page01.jpg"
+  },
   {
     "slug": "wnjuly5_compressed",
-    "title": "wnjuly5_compressed",
+    "title": "WN July 5 (PDF)",
     "type": "pdf",
     "file": "books/demo-pdf/wnjuly5_compressed.pdf"
   }
