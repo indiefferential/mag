@@ -256,7 +256,7 @@
   const params = new URLSearchParams(location.search);
   const slug = params.get('book');
 
-  let BOOK_TYPE, TOTAL_PAGES, PAGE_EXT, PAGE_FOLDER, PDF_FILE, BOOK_TITLE;
+  let BOOK_TYPE, TOTAL_PAGES, PAGE_EXT, PAGE_FOLDER, PAGE_PATTERN, PDF_FILE, BOOK_TITLE;
 
   try {
     if (params.get('pdf')) {
@@ -266,10 +266,12 @@
       BOOK_TITLE = params.get('title') || '';
     } else if (params.get('folder')) {
       // Ad-hoc image mode: viewer.html?folder=books/wnjuly5/pages&pages=34&ext=jpg&title=WN%20July%205
+      // Optional &pattern=page{n} if your files aren't named page-01.jpg (default pattern).
       BOOK_TYPE = 'images';
       PAGE_FOLDER = params.get('folder');
       TOTAL_PAGES = parseInt(params.get('pages') || '34', 10);
       PAGE_EXT = params.get('ext') || 'jpg';
+      PAGE_PATTERN = params.get('pattern') || 'page-{n}';
       BOOK_TITLE = params.get('title') || '';
     } else {
       // Manifest mode: viewer.html?book=wnjuly5  (looked up in books.json)
@@ -297,6 +299,7 @@
         PAGE_FOLDER = entry.folder;
         TOTAL_PAGES = entry.totalPages;
         PAGE_EXT = entry.ext;
+        PAGE_PATTERN = entry.pattern || 'page-{n}';
       }
     }
   } catch (err) {
@@ -307,7 +310,10 @@
   document.getElementById('bookTitle').textContent = BOOK_TITLE;
   document.title = BOOK_TITLE ? `${BOOK_TITLE} — Flipbook` : 'Flipbook Viewer';
 
-  function pageSrc(n){ return `${PAGE_FOLDER}/page-${pad(n)}.${PAGE_EXT}`; }
+  // PAGE_PATTERN uses {n} as the page-number placeholder, e.g. "page-{n}"
+  // for page-01.jpg or "page{n}" for page01.jpg — set per-book via
+  // books.json's "pattern" field, or ?pattern= in an ad-hoc link.
+  function pageSrc(n){ return `${PAGE_FOLDER}/${PAGE_PATTERN.replace('{n}', pad(n))}.${PAGE_EXT}`; }
 
   function makePageShell(i, isCover){
     const div = document.createElement('div');
