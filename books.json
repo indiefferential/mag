@@ -10,12 +10,6 @@
     "cover": "books/wnjuly5/pages/page01.jpg"
   },
   {
-    "slug": "wnjuly5_compressed",
-    "title": "WN July 5 (PDF)",
-    "type": "pdf",
-    "file": "books/demo-pdf/wnjuly5_compressed.pdf"
-  },
-  {
     "slug": "wnjuly4",
     "title": "WN — July 4",
     "type": "images",
