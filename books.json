@@ -1,5 +1,5 @@
 [
-   {
+  {
     "slug": "wnjuly6",
     "title": "WN — July 6",
     "type": "images",
@@ -9,6 +9,7 @@
     "pattern": "page{n}",
     "cover": "books/wnjuly6/pages/page01.jpg"
   },
+  {
     "slug": "wnjuly5",
     "title": "WN — July 5",
     "type": "images",
