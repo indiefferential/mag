@@ -48,5 +48,16 @@
     "ext": "jpg",
     "pattern": "page{n}",
     "cover": "books/wnjuly1/pages/page01.jpg"
+ },
+  {
+    "slug": "wnjuly6",
+    "title": "WN — July 6",
+    "type": "images",
+    "folder": "books/wnjuly6/pages",
+    "totalPages": 34,
+    "ext": "jpg",
+    "pattern": "page{n}",
+    "cover": "books/wnjuly6/pages/page01.jpg"
   }
+]
 ]
