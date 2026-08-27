@@ -1,4 +1,14 @@
 [
+ {
+    "slug": "wnaug4",
+    "title": "WN — Aug 4",
+    "type": "images",
+    "folder": "books/wnaug4/pages",
+    "totalPages": 34,
+    "ext": "jpg",
+    "pattern": "page{n}",
+    "cover": "books/wnaug4/pages/page01.jpg"
+  },
   {
     "slug": "wnaug3",
     "title": "WN — Aug 3",
@@ -8,7 +18,8 @@
     "ext": "jpg",
     "pattern": "page{n}",
     "cover": "books/wnaug3/pages/page01.jpg"
-  },{
+  },
+  {
     "slug": "wnaug2",
     "title": "WN — Aug 2",
     "type": "images",
