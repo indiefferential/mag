@@ -1,5 +1,15 @@
 [
  {
+    "slug": "wnsep1",
+    "title": "WN — Sep 1",
+    "type": "images",
+    "folder": "books/wnsep1/pages",
+    "totalPages": 34,
+    "ext": "jpg",
+    "pattern": "page{n}",
+    "cover": "books/wnsep1/pages/page01.jpg"
+  },
+  {
     "slug": "wnaug4",
     "title": "WN — Aug 4",
     "type": "images",
