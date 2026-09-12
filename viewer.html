@@ -1,633 +1,882 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Flipbook Viewer</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="description" content="Read an Indiefferential Magazine issue as an interactive flipbook.">
+  <meta property="og:title" content="Flipbook Viewer — Indiefferential Magazine">
+  <meta property="og:description" content="Read an Indiefferential Magazine issue as an interactive flipbook.">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  <title>Flipbook Viewer — Indiefferential Magazine</title>
 
-<!-- ============================================================
-     This page shows ONE issue. Which issue it shows is picked by
-     a URL parameter — that's the "link" you embed per issue:
+  <style>
+    :root {
+      --red: #e21b2d;
+      --ink: #0a0a0a;
+      --paper: #ffffff;
+      --soft: #f5f5f3;
+      --line: #d9d9d7;
+      --muted: #77736f;
+      --serif: Georgia, "Times New Roman", serif;
+      --sans: Arial, Helvetica, sans-serif;
+      --shadow: 9px 9px 0 var(--ink);
+    }
 
-       viewer.html?book=wnjuly5
+    * { box-sizing: border-box; }
 
-     "wnjuly5" must match a "slug" entry in books.json.
-     See README.md for the full workflow to add a new issue.
-     ============================================================ -->
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--sans);
+      -webkit-font-smoothing: antialiased;
+      -webkit-user-select: none;
+      user-select: none;
+    }
 
-<style>
-  :root{
-    --ink:#161311;
-    --paper:#ece5d6;
-    --gold:#b08d4f;
-    --gold-bright:#d4af6a;
-    --line:rgba(212,175,106,0.18);
-  }
-  *{ box-sizing:border-box; }
-  html,body{
-    margin:0; padding:0; width:100%; height:100%;
-    background:var(--ink);
-    overflow:hidden;
-    font-family:'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif;
-    -webkit-user-select:none; user-select:none;
-  }
-  #stage{
-    position:relative;
-    width:100%; height:100%;
-    display:flex; flex-direction:column; align-items:center; justify-content:center;
-    background:radial-gradient(ellipse at 50% 40%, #262019 0%, #161311 62%, #0b0a08 100%);
-  }
-  #stage::before{
-    content:"";
-    position:absolute; inset:0;
-    background:repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px);
-    pointer-events:none; opacity:0.5;
-  }
-  #topBar{
-    position:absolute; top:0; left:0; right:0;
-    display:flex; align-items:center; justify-content:space-between;
-    padding:14px 20px;
-    z-index:6;
-    pointer-events:none;
-  }
-  #topBar a, #topBar span{ pointer-events:auto; }
-  #homeLink{
-    display:flex; align-items:center; gap:6px;
-    color:#cabf9f; text-decoration:none;
-    font-size:12px; letter-spacing:0.08em; text-transform:uppercase;
-    opacity:0.7; transition:opacity .15s ease;
-  }
-  #homeLink:hover{ opacity:1; }
-  #homeLink svg{ width:14px; height:14px; }
-  #bookTitle{
-    color:#cabf9f; font-size:13px; letter-spacing:0.06em; opacity:0.75;
-  }
-  #bookWrap{
-    position:relative;
-    display:flex; align-items:center; justify-content:center;
-    width:100%; flex:1 1 auto; min-height:0;
-    padding:clamp(8px, 6vh, 56px) clamp(20px, 8vw, 92px) clamp(4px, 2vh, 24px);
-    overflow:hidden;
-  }
-  #book{
-    box-shadow:0 30px 60px -15px rgba(0,0,0,0.7), 0 10px 25px -5px rgba(0,0,0,0.5);
-    transition:transform .06s linear;
-    transform-origin:center center;
-    will-change:transform;
-  }
-  #book.zoomed{ cursor:grab; }
-  #book.panning{ cursor:grabbing; transition:none; }
-  #panOverlay{
-    position:absolute; inset:0;
-    pointer-events:none;
-    z-index:4;
-    touch-action:none;
-  }
-  #panOverlay.active{ pointer-events:auto; cursor:grab; }
-  #panOverlay.panning{ cursor:grabbing; }
-  .pf-page{ background:var(--paper); width:100%; height:100%; overflow:hidden; position:relative; }
-  .pf-page img{ width:100%; height:100%; object-fit:contain; display:block; pointer-events:none; -webkit-user-drag:none; }
-  .pf-page canvas{ width:100%; height:100%; object-fit:contain; display:block; pointer-events:none; }
-  .pf-page .pf-num{ position:absolute; bottom:10px; font-size:11px; letter-spacing:0.08em; color:#7a6f5c; font-family:Georgia, serif; }
-  .pf-page.pf-left .pf-num{ left:16px; }
-  .pf-page.pf-right .pf-num{ right:16px; }
-  .pf-page.pf-cover{ background:linear-gradient(160deg,#221c15,#171310); }
-  .navBtn{
-    position:absolute; top:50%; transform:translateY(-50%);
-    width:52px; height:52px; border-radius:50%;
-    border:1px solid var(--line);
-    background:rgba(20,17,14,0.55); backdrop-filter:blur(6px);
-    color:var(--gold-bright);
-    display:flex; align-items:center; justify-content:center;
-    cursor:pointer;
-    transition:background .2s ease, transform .2s ease, border-color .2s ease;
-    z-index:5;
-  }
-  .navBtn:hover{ background:rgba(212,175,106,0.14); border-color:var(--gold-bright); }
-  .navBtn:active{ transform:translateY(-50%) scale(0.94); }
-  .navBtn.disabled{ opacity:0.25; pointer-events:none; }
-  #prevBtn{ left:24px; }
-  #nextBtn{ right:24px; }
-  .navBtn svg{ width:20px; height:20px; }
-  #bar{
-    flex:0 0 auto; width:100%;
-    display:flex; align-items:center; justify-content:center; gap:18px;
-    padding:12px 20px 18px; color:var(--gold-bright);
-  }
-  #bar .divider{ width:1px; height:18px; background:var(--line); }
-  .iconBtn{
-    background:none; border:none; cursor:pointer; color:#cabf9f;
-    display:flex; align-items:center; justify-content:center;
-    width:34px; height:34px; border-radius:8px;
-    transition:color .15s ease, background .15s ease;
-  }
-  .iconBtn:hover{ color:var(--gold-bright); background:rgba(212,175,106,0.1); }
-  .iconBtn svg{ width:18px; height:18px; }
-  #pageIndicator{ font-size:13px; letter-spacing:0.05em; color:#cabf9f; min-width:82px; text-align:center; font-variant-numeric:tabular-nums; }
-  #rail{ position:relative; width:220px; height:3px; background:rgba(212,175,106,0.15); border-radius:2px; overflow:hidden; cursor:pointer; }
-  #railFill{ position:absolute; left:0; top:0; bottom:0; width:0%; background:linear-gradient(90deg, var(--gold), var(--gold-bright)); transition:width .35s cubic-bezier(.4,0,.2,1); }
-  #loader{
-    position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px;
-    color:#8a7d61; z-index:20;
-    background:radial-gradient(ellipse at 50% 40%, #221c15 0%, #161311 70%);
-    transition:opacity .5s ease;
-  }
-  #loader .ring{ width:34px; height:34px; border-radius:50%; border:2px solid rgba(212,175,106,0.2); border-top-color:var(--gold-bright); animation:spin 0.9s linear infinite; }
-  #loader span{ font-size:12px; letter-spacing:0.15em; text-transform:uppercase; }
-  @keyframes spin{ to{ transform:rotate(360deg); } }
-  #errorBox{
-    position:absolute; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center; gap:10px;
-    color:#cabf9f; text-align:center; padding:20px; z-index:25;
-    background:radial-gradient(ellipse at 50% 40%, #221c15 0%, #161311 70%);
-  }
-  #errorBox h2{ font-weight:normal; color:var(--gold-bright); margin:0; font-size:18px; }
-  #errorBox p{ margin:0; font-size:13px; opacity:0.8; max-width:420px; line-height:1.5; }
-  #errorBox code{ background:rgba(212,175,106,0.12); padding:2px 6px; border-radius:4px; }
-  button:focus-visible{ outline:2px solid var(--gold-bright); outline-offset:2px; }
-  #stage:fullscreen{ background:var(--ink); }
-  @media (max-width: 720px){
-    #bookWrap{ padding:44px 8px 8px; }
-    #prevBtn{ left:6px; width:40px; height:40px; }
-    #nextBtn{ right:6px; width:40px; height:40px; }
-    #bar{ gap:10px; }
-    #rail{ width:110px; }
-    #pageIndicator{ min-width:60px; font-size:12px; }
-  }
-  /* Short embeds (e.g. a small iframe) — shrink chrome so the book gets the room */
-  @media (max-height: 420px){
-    #topBar{ padding:6px 10px; }
-    #homeLink{ font-size:10px; }
-    #bookTitle{ font-size:11px; }
-    #bookWrap{ padding:30px 44px 4px; }
-    .navBtn{ width:34px; height:34px; }
-    #prevBtn{ left:6px; }
-    #nextBtn{ right:6px; }
-    .navBtn svg{ width:15px; height:15px; }
-    #bar{ padding:4px 10px 8px; gap:8px; }
-    .iconBtn{ width:26px; height:26px; }
-    .iconBtn svg{ width:14px; height:14px; }
-    #rail{ width:70px; }
-    #pageIndicator{ min-width:52px; font-size:11px; }
-  }
-  #zoomLevel{
-    font-size:12px; letter-spacing:0.04em; color:#cabf9f;
-    min-width:38px; text-align:center; font-variant-numeric:tabular-nums;
-  }
-  #expandBtn{ display:flex; align-items:center; gap:6px; }
-</style>
+    ::selection { background: var(--red); color: var(--paper); }
+
+    #stage {
+      position: relative;
+      display: flex;
+      width: 100%;
+      height: 100%;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      background:
+        linear-gradient(90deg, transparent 0 49.94%, rgba(10, 10, 10, .045) 50%, transparent 50.06%),
+        linear-gradient(0deg, transparent 0 49.94%, rgba(10, 10, 10, .045) 50%, transparent 50.06%),
+        var(--paper);
+    }
+
+    #stage::after {
+      content: "READ";
+      position: absolute;
+      right: -1vw;
+      bottom: 36px;
+      color: var(--red);
+      font-family: var(--serif);
+      font-size: clamp(90px, 18vw, 245px);
+      font-weight: 900;
+      line-height: .75;
+      letter-spacing: -.08em;
+      opacity: .045;
+      pointer-events: none;
+    }
+
+    #topBar {
+      position: absolute;
+      z-index: 10;
+      top: 0;
+      right: 0;
+      left: 0;
+      display: grid;
+      grid-template-columns: 1fr minmax(0, auto) 1fr;
+      align-items: center;
+      min-height: 62px;
+      padding: 0 22px;
+      border-bottom: 1px solid var(--ink);
+      background: rgba(255, 255, 255, .94);
+    }
+
+    #homeLink,
+    #bookTitle,
+    #issueLabel {
+      position: relative;
+      z-index: 1;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+
+    #homeLink {
+      display: inline-flex;
+      width: max-content;
+      align-items: center;
+      gap: 7px;
+      color: var(--red);
+      text-decoration: none;
+    }
+
+    #homeLink:hover { color: var(--ink); }
+    #homeLink svg { width: 14px; height: 14px; }
+
+    #bookTitle {
+      max-width: min(44vw, 560px);
+      overflow: hidden;
+      color: var(--ink);
+      text-align: center;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    #issueLabel { justify-self: end; color: var(--red); }
+
+    #bookWrap {
+      position: relative;
+      display: flex;
+      width: 100%;
+      min-height: 0;
+      flex: 1 1 auto;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      padding: 82px clamp(58px, 8vw, 104px) 18px;
+      touch-action: none;
+    }
+
+    #book {
+      border: 1px solid var(--ink);
+      box-shadow: var(--shadow);
+      transform-origin: center center;
+      transition: transform .06s linear;
+      will-change: transform;
+    }
+
+    #book.zoomed { cursor: grab; }
+    #book.panning { cursor: grabbing; transition: none; }
+
+    #panOverlay {
+      position: absolute;
+      z-index: 4;
+      inset: 0;
+      pointer-events: none;
+      touch-action: none;
+    }
+
+    #panOverlay.active { cursor: grab; pointer-events: auto; }
+    #panOverlay.panning { cursor: grabbing; }
+
+    .pf-page {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--paper);
+    }
+
+    .pf-page img,
+    .pf-page canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      pointer-events: none;
+      -webkit-user-drag: none;
+    }
+
+    .pf-page .pf-num {
+      position: absolute;
+      bottom: 10px;
+      color: var(--muted);
+      font-family: var(--sans);
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: .12em;
+    }
+
+    .pf-page.pf-left .pf-num { left: 16px; }
+    .pf-page.pf-right .pf-num { right: 16px; }
+    .pf-page.pf-cover { background: var(--ink); }
+
+    .navBtn {
+      position: absolute;
+      z-index: 7;
+      top: 50%;
+      display: flex;
+      width: 48px;
+      height: 48px;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--ink);
+      border-radius: 0;
+      background: var(--paper);
+      box-shadow: 4px 4px 0 var(--ink);
+      color: var(--ink);
+      cursor: pointer;
+      transform: translateY(-50%);
+      transition: color .15s ease, background .15s ease, transform .15s ease, box-shadow .15s ease;
+    }
+
+    .navBtn:hover {
+      background: var(--red);
+      color: var(--paper);
+      transform: translate(-2px, calc(-50% - 2px));
+      box-shadow: 6px 6px 0 var(--ink);
+    }
+
+    .navBtn:active {
+      transform: translate(2px, calc(-50% + 2px));
+      box-shadow: 2px 2px 0 var(--ink);
+    }
+
+    .navBtn.disabled { opacity: .22; pointer-events: none; }
+    #prevBtn { left: 24px; }
+    #nextBtn { right: 24px; }
+    .navBtn svg { width: 20px; height: 20px; }
+
+    #bar {
+      position: relative;
+      z-index: 8;
+      display: flex;
+      width: 100%;
+      min-height: 62px;
+      flex: 0 0 auto;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      border-top: 1px solid var(--ink);
+      padding: 10px 20px;
+      background: var(--paper);
+    }
+
+    #bar .divider { width: 1px; height: 20px; background: var(--line); }
+
+    .iconBtn {
+      display: flex;
+      width: 34px;
+      height: 34px;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid transparent;
+      border-radius: 0;
+      background: none;
+      color: var(--ink);
+      cursor: pointer;
+      transition: color .15s ease, background .15s ease, border-color .15s ease;
+    }
+
+    .iconBtn:hover { border-color: var(--ink); background: var(--red); color: var(--paper); }
+    .iconBtn.disabled { opacity: .25; pointer-events: none; }
+    .iconBtn svg { width: 18px; height: 18px; }
+
+    #pageIndicator,
+    #zoomLevel {
+      color: var(--ink);
+      font-size: 10px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: .1em;
+      text-align: center;
+      text-transform: uppercase;
+    }
+
+    #pageIndicator { min-width: 82px; }
+    #zoomLevel { min-width: 42px; }
+
+    #rail {
+      position: relative;
+      width: min(220px, 18vw);
+      height: 8px;
+      overflow: hidden;
+      border: 1px solid var(--ink);
+      background: var(--soft);
+      cursor: pointer;
+    }
+
+    #railFill {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      width: 0;
+      background: var(--red);
+      transition: width .35s cubic-bezier(.4, 0, .2, 1);
+    }
+
+    #loader,
+    #errorBox {
+      position: absolute;
+      z-index: 20;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 30px;
+      background:
+        linear-gradient(90deg, transparent 0 49.94%, rgba(10, 10, 10, .045) 50%, transparent 50.06%),
+        var(--paper);
+      color: var(--ink);
+      text-align: center;
+      transition: opacity .5s ease;
+    }
+
+    #loader .ring {
+      width: 38px;
+      height: 38px;
+      border: 3px solid var(--line);
+      border-top-color: var(--red);
+      animation: spin .9s linear infinite;
+    }
+
+    #loader span,
+    #errorBox .errorKicker {
+      color: var(--red);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .15em;
+      text-transform: uppercase;
+    }
+
+    #errorBox { display: none; }
+
+    #errorBox h2 {
+      margin: 0;
+      font-family: var(--serif);
+      font-size: clamp(38px, 6vw, 78px);
+      font-weight: 900;
+      line-height: .9;
+      letter-spacing: -.04em;
+    }
+
+    #errorBox h2::after { content: "."; color: var(--red); }
+
+    #errorBox p {
+      max-width: 470px;
+      margin: 0;
+      border-top: 3px solid var(--ink);
+      padding-top: 14px;
+      font-family: var(--serif);
+      font-size: 16px;
+      line-height: 1.45;
+    }
+
+    #errorBox code { padding: 2px 6px; background: rgba(226, 27, 45, .08); color: var(--red); }
+    button:focus-visible, a:focus-visible { outline: 3px solid var(--red); outline-offset: 3px; }
+    #stage:fullscreen { background: var(--paper); }
+    #expandBtn { display: flex; align-items: center; gap: 6px; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 720px) {
+      #topBar { min-height: 58px; padding: 0 14px; }
+      #issueLabel { display: none; }
+      #bookTitle { justify-self: end; max-width: 48vw; text-align: right; }
+      #bookWrap { padding: 68px 8px 8px; }
+      #prevBtn { left: 6px; }
+      #nextBtn { right: 6px; }
+      .navBtn { width: 40px; height: 40px; box-shadow: 3px 3px 0 var(--ink); }
+      #bar { gap: 7px; padding: 9px 7px; }
+      #bar .divider:nth-of-type(3) { display: none; }
+      #rail { width: 90px; }
+      #pageIndicator { min-width: 58px; font-size: 9px; }
+      #zoomLevel { min-width: 36px; font-size: 9px; }
+      .iconBtn { width: 30px; height: 30px; }
+      #expandBtn { display: none; }
+    }
+
+    @media (max-width: 430px) {
+      #rail { width: 60px; }
+      #firstBtn, #lastBtn, #bar .edgeDivider { display: none; }
+    }
+
+    @media (max-height: 420px) {
+      #topBar { min-height: 38px; padding: 0 10px; }
+      #homeLink, #bookTitle { font-size: 8px; }
+      #bookWrap { padding: 42px 44px 4px; }
+      .navBtn { width: 34px; height: 34px; }
+      #prevBtn { left: 6px; }
+      #nextBtn { right: 6px; }
+      .navBtn svg { width: 15px; height: 15px; }
+      #bar { min-height: 42px; padding: 4px 10px; gap: 6px; }
+      .iconBtn { width: 26px; height: 26px; }
+      .iconBtn svg { width: 14px; height: 14px; }
+      #rail { width: 70px; }
+      #pageIndicator { min-width: 52px; font-size: 9px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+    }
+  </style>
 </head>
 <body>
+  <main id="stage">
+    <nav id="topBar" aria-label="Viewer navigation">
+      <a id="homeLink" href="index.html" aria-label="Back to issue library">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+        Library
+      </a>
+      <span id="bookTitle"></span>
+      <span id="issueLabel">Indiefferential / Magazine</span>
+    </nav>
 
-<div id="stage">
-  <div id="topBar">
-    <a id="homeLink" href="index.html">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
-      Library
-    </a>
-    <span id="bookTitle"></span>
-  </div>
+    <section id="bookWrap" aria-label="Flipbook">
+      <div id="book"></div>
+      <div id="panOverlay" aria-hidden="true"></div>
 
-  <div id="loader">
-    <div class="ring"></div>
-    <span>Opening book…</span>
-  </div>
+      <button id="prevBtn" class="navBtn disabled" type="button" aria-label="Previous page" title="Previous page">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+      </button>
+      <button id="nextBtn" class="navBtn disabled" type="button" aria-label="Next page" title="Next page">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+      </button>
+    </section>
 
-  <div id="errorBox">
-    <h2>Couldn't find that issue</h2>
-    <p id="errorMsg"></p>
-  </div>
+    <div id="loader" role="status" aria-live="polite">
+      <div class="ring" aria-hidden="true"></div>
+      <span>Opening book…</span>
+    </div>
 
-  <div id="bookWrap">
-    <button id="prevBtn" class="navBtn" aria-label="Previous page" title="Previous page">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-    </button>
-    <div id="book"></div>
-    <div id="panOverlay"></div>
-    <button id="nextBtn" class="navBtn" aria-label="Next page" title="Next page">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
-    </button>
-  </div>
+    <div id="errorBox" role="alert">
+      <span class="errorKicker">Issue archive</span>
+      <h2>Couldn't find that issue</h2>
+      <p id="errorMsg"></p>
+    </div>
 
-  <div id="bar">
-    <button id="firstBtn" class="iconBtn" aria-label="First page" title="First page">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 17 6 12 11 7"></polyline><polyline points="18 17 13 12 18 7"></polyline></svg>
-    </button>
-    <span id="pageIndicator">1 / 1</span>
-    <div id="rail"><div id="railFill"></div></div>
-    <button id="lastBtn" class="iconBtn" aria-label="Last page" title="Last page">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 17 18 12 13 7"></polyline><polyline points="6 17 11 12 6 7"></polyline></svg>
-    </button>
-    <div class="divider"></div>
-    <button id="zoomOutBtn" class="iconBtn" aria-label="Zoom out" title="Zoom out">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
-    </button>
-    <span id="zoomLevel">100%</span>
-    <button id="zoomInBtn" class="iconBtn" aria-label="Zoom in" title="Zoom in">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
-    </button>
-    <div class="divider"></div>
-    <button id="fsBtn" class="iconBtn" aria-label="Toggle fullscreen" title="Fullscreen">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"></path></svg>
-    </button>
-    <button id="expandBtn" class="iconBtn" aria-label="Open full page in new tab" title="Open full page in new tab">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-    </button>
-  </div>
-</div>
+    <nav id="bar" aria-label="Flipbook controls">
+      <button id="firstBtn" class="iconBtn" type="button" aria-label="First page" title="First page">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 4v16M19 5l-7 7 7 7"/></svg>
+      </button>
+      <button id="prevBarBtn" class="iconBtn" type="button" aria-label="Previous page" title="Previous page">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+      </button>
+      <span id="pageIndicator">1 / 1</span>
+      <button id="nextBarBtn" class="iconBtn" type="button" aria-label="Next page" title="Next page">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+      </button>
+      <button id="lastBtn" class="iconBtn" type="button" aria-label="Last page" title="Last page">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M19 4v16M5 5l7 7-7 7"/></svg>
+      </button>
 
-<script src="https://cdn.jsdelivr.net/npm/page-flip@2.0.7/dist/js/page-flip.browser.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/legacy/build/pdf.min.js"></script>
-<script>
-(async function(){
+      <span class="divider edgeDivider" aria-hidden="true"></span>
+      <div id="rail" role="slider" tabindex="0" aria-label="Page position" aria-valuemin="1" aria-valuemax="1" aria-valuenow="1"><div id="railFill"></div></div>
+      <span class="divider" aria-hidden="true"></span>
 
-  if (window.pdfjsLib) {
-    pdfjsLib.GlobalWorkerOptions.workerSrc =
-      "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/legacy/build/pdf.worker.min.js";
-  }
+      <button id="zoomOutBtn" class="iconBtn" type="button" aria-label="Zoom out" title="Zoom out">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14"/></svg>
+      </button>
+      <span id="zoomLevel">100%</span>
+      <button id="zoomInBtn" class="iconBtn" type="button" aria-label="Zoom in" title="Zoom in">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
 
-  function pad(n){ return String(n).padStart(2,'0'); }
-  function showError(msg){
-    document.getElementById('loader').style.display = 'none';
-    document.getElementById('errorMsg').textContent = msg;
-    document.getElementById('errorBox').style.display = 'flex';
-  }
+      <span class="divider" aria-hidden="true"></span>
+      <button id="fsBtn" class="iconBtn" type="button" aria-label="Toggle fullscreen" title="Fullscreen">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg>
+      </button>
+      <button id="expandBtn" class="iconBtn" type="button" aria-label="Open in new tab" title="Open in new tab">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 3h6v6M10 14 21 3M18 13v7a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h7"/></svg>
+      </button>
+    </nav>
+  </main>
 
-  // ---- 1. Work out which book to load ----
-  const params = new URLSearchParams(location.search);
-  const slug = params.get('book');
+  <script src="https://cdn.jsdelivr.net/npm/page-flip@2.0.7/dist/js/page-flip.browser.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/legacy/build/pdf.min.js"></script>
+  <script>
+    (async function () {
+      if (window.pdfjsLib) {
+        pdfjsLib.GlobalWorkerOptions.workerSrc =
+          "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/legacy/build/pdf.worker.min.js";
+      }
 
-  let BOOK_TYPE, TOTAL_PAGES, PAGE_EXT, PAGE_FOLDER, PAGE_PATTERN, PDF_FILE, BOOK_TITLE;
+      function pad(n) { return String(n).padStart(2, "0"); }
+      function showError(message) {
+        document.getElementById("loader").style.display = "none";
+        document.getElementById("errorMsg").textContent = message;
+        document.getElementById("errorBox").style.display = "flex";
+      }
 
-  try {
-    if (params.get('pdf')) {
-      // Ad-hoc PDF mode: viewer.html?pdf=books/wnjuly5/source.pdf&title=WN%20July%205
-      BOOK_TYPE = 'pdf';
-      PDF_FILE = params.get('pdf');
-      BOOK_TITLE = params.get('title') || '';
-    } else if (params.get('folder')) {
-      // Ad-hoc image mode: viewer.html?folder=books/wnjuly5/pages&pages=34&ext=jpg&title=WN%20July%205
-      // Optional &pattern=page{n} if your files aren't named page-01.jpg (default pattern).
-      BOOK_TYPE = 'images';
-      PAGE_FOLDER = params.get('folder');
-      TOTAL_PAGES = parseInt(params.get('pages') || '34', 10);
-      PAGE_EXT = params.get('ext') || 'jpg';
-      PAGE_PATTERN = params.get('pattern') || 'page-{n}';
-      BOOK_TITLE = params.get('title') || '';
-    } else {
-      // Manifest mode: viewer.html?book=wnjuly5  (looked up in books.json)
-      const res = await fetch('books.json');
-      if (!res.ok) throw new Error('books.json not found');
-      const books = await res.json();
+      const params = new URLSearchParams(location.search);
+      const slug = params.get("book");
+      let BOOK_TYPE, TOTAL_PAGES, PAGE_EXT, PAGE_FOLDER, PAGE_PATTERN, PDF_FILE, BOOK_TITLE;
 
-      let entry = null;
-      if (slug) {
-        entry = books.find(b => b.slug === slug);
-        if (!entry) {
-          showError(`No book with slug "${slug}" in books.json. Add an entry for it, or check the spelling in your link.`);
+      try {
+        if (params.get("pdf")) {
+          BOOK_TYPE = "pdf";
+          PDF_FILE = params.get("pdf");
+          BOOK_TITLE = params.get("title") || "";
+        } else if (params.get("folder")) {
+          BOOK_TYPE = "images";
+          PAGE_FOLDER = params.get("folder");
+          TOTAL_PAGES = parseInt(params.get("pages") || "34", 10);
+          PAGE_EXT = params.get("ext") || "jpg";
+          PAGE_PATTERN = params.get("pattern") || "page-{n}";
+          BOOK_TITLE = params.get("title") || "";
+        } else {
+          const response = await fetch("books.json");
+          if (!response.ok) throw new Error("books.json not found");
+          const books = await response.json();
+          let entry = null;
+
+          if (slug) {
+            entry = books.find(function (book) { return book.slug === slug; });
+            if (!entry) {
+              showError('No book with slug "' + slug + '" in books.json. Add an entry for it, or check the spelling in your link.');
+              return;
+            }
+          } else {
+            entry = books[0];
+            if (!entry) {
+              showError("books.json is empty — add at least one book entry.");
+              return;
+            }
+          }
+
+          BOOK_TYPE = entry.type === "pdf" ? "pdf" : "images";
+          BOOK_TITLE = entry.title || "";
+          if (BOOK_TYPE === "pdf") {
+            PDF_FILE = entry.file;
+          } else {
+            PAGE_FOLDER = entry.folder;
+            TOTAL_PAGES = entry.totalPages;
+            PAGE_EXT = entry.ext;
+            PAGE_PATTERN = entry.pattern || "page-{n}";
+          }
+        }
+      } catch (error) {
+        showError("Could not load books.json. If you're testing locally by double-clicking the file, run a local server instead (see README) — browsers block file: fetches.");
+        return;
+      }
+
+      document.getElementById("bookTitle").textContent = BOOK_TITLE;
+      document.title = BOOK_TITLE ? BOOK_TITLE + " — Flipbook" : "Flipbook Viewer";
+
+      function pageSrc(number) {
+        return PAGE_FOLDER + "/" + PAGE_PATTERN.replace("{n}", pad(number)) + "." + PAGE_EXT;
+      }
+
+      function makePageShell(index, isCover) {
+        const page = document.createElement("div");
+        page.className = "pf-page" + (isCover ? " pf-cover" : (index % 2 === 0 ? " pf-left" : " pf-right"));
+        page.setAttribute("data-density", isCover ? "hard" : "soft");
+        if (!isCover) {
+          const number = document.createElement("div");
+          number.className = "pf-num";
+          number.textContent = index;
+          page.appendChild(number);
+        }
+        return page;
+      }
+
+      const bookEl = document.getElementById("book");
+      const pageEls = [];
+      const loaderLabel = document.querySelector("#loader span");
+
+      if (BOOK_TYPE === "pdf") {
+        if (!window.pdfjsLib) {
+          showError("pdf.js failed to load — check your internet connection and reload.");
           return;
         }
+        if (loaderLabel) loaderLabel.textContent = "Rendering pages…";
+
+        let pdf;
+        try {
+          pdf = await pdfjsLib.getDocument(PDF_FILE).promise;
+        } catch (error) {
+          showError('Could not open the PDF at "' + PDF_FILE + '". Check the path in books.json and that the file was uploaded.');
+          return;
+        }
+
+        TOTAL_PAGES = pdf.numPages;
+        const TARGET_WIDTH = 850;
+        if (loaderLabel) loaderLabel.textContent = "Rendering page 0 / " + TOTAL_PAGES + "…";
+
+        const slowTimer = setTimeout(function () {
+          if (loaderLabel) loaderLabel.textContent += " (large file — still working)";
+        }, 12000);
+        const verySlowTimer = setTimeout(function () {
+          if (loaderLabel) loaderLabel.textContent = "Still rendering — if this doesn't finish soon, try compressing the PDF.";
+        }, 40000);
+
+        let renderedCount = 0;
+        const canvasResults = new Array(TOTAL_PAGES);
+
+        async function renderOnePage(index) {
+          const page = await pdf.getPage(index);
+          const baseViewport = page.getViewport({ scale: 1 });
+          const viewport = page.getViewport({ scale: TARGET_WIDTH / baseViewport.width });
+          const canvas = document.createElement("canvas");
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          const context = canvas.getContext("2d");
+          await page.render({ canvasContext: context, viewport: viewport }).promise;
+          canvasResults[index - 1] = canvas;
+          renderedCount += 1;
+          if (loaderLabel) loaderLabel.textContent = "Rendering page " + renderedCount + " / " + TOTAL_PAGES + "…";
+        }
+
+        try {
+          const concurrency = 4;
+          let nextIndex = 1;
+          async function worker() {
+            while (nextIndex <= TOTAL_PAGES) {
+              const index = nextIndex++;
+              await renderOnePage(index);
+            }
+          }
+          await Promise.all(Array.from({ length: Math.min(concurrency, TOTAL_PAGES) }, worker));
+        } catch (error) {
+          clearTimeout(slowTimer);
+          clearTimeout(verySlowTimer);
+          console.error(error);
+          showError("Something went wrong rendering the PDF (" + (error.message || error) + "). Try a smaller file, or reload.");
+          return;
+        }
+
+        clearTimeout(slowTimer);
+        clearTimeout(verySlowTimer);
+
+        for (let index = 1; index <= TOTAL_PAGES; index += 1) {
+          const page = makePageShell(index, index === 1 || index === TOTAL_PAGES);
+          page.insertBefore(canvasResults[index - 1], page.firstChild);
+          bookEl.appendChild(page);
+          pageEls.push(page);
+        }
       } else {
-        entry = books[0];
-        if (!entry) { showError('books.json is empty — add at least one book entry.'); return; }
-      }
-
-      BOOK_TYPE = entry.type === 'pdf' ? 'pdf' : 'images';
-      BOOK_TITLE = entry.title || '';
-      if (BOOK_TYPE === 'pdf') {
-        PDF_FILE = entry.file;
-      } else {
-        PAGE_FOLDER = entry.folder;
-        TOTAL_PAGES = entry.totalPages;
-        PAGE_EXT = entry.ext;
-        PAGE_PATTERN = entry.pattern || 'page-{n}';
-      }
-    }
-  } catch (err) {
-    showError('Could not load books.json. If you\'re testing locally by double-clicking the file, run a local server instead (see README) — browsers block file: fetches.');
-    return;
-  }
-
-  document.getElementById('bookTitle').textContent = BOOK_TITLE;
-  document.title = BOOK_TITLE ? `${BOOK_TITLE} — Flipbook` : 'Flipbook Viewer';
-
-  // PAGE_PATTERN uses {n} as the page-number placeholder, e.g. "page-{n}"
-  // for page-01.jpg or "page{n}" for page01.jpg — set per-book via
-  // books.json's "pattern" field, or ?pattern= in an ad-hoc link.
-  function pageSrc(n){ return `${PAGE_FOLDER}/${PAGE_PATTERN.replace('{n}', pad(n))}.${PAGE_EXT}`; }
-
-  function makePageShell(i, isCover){
-    const div = document.createElement('div');
-    div.className = 'pf-page' + (isCover ? ' pf-cover' : (i % 2 === 0 ? ' pf-left' : ' pf-right'));
-    div.setAttribute('data-density', isCover ? 'hard' : 'soft');
-    if (!isCover){
-      const num = document.createElement('div');
-      num.className = 'pf-num';
-      num.textContent = i;
-      div.appendChild(num);
-    }
-    return div;
-  }
-
-  // ---- 2. Build the book ----
-  const bookEl = document.getElementById('book');
-  const pageEls = [];
-  const loaderLabel = document.querySelector('#loader span');
-
-  if (BOOK_TYPE === 'pdf'){
-    if (!window.pdfjsLib){ showError('pdf.js failed to load — check your internet connection and reload.'); return; }
-    if (loaderLabel) loaderLabel.textContent = 'Rendering pages…';
-
-    let pdf;
-    try {
-      pdf = await pdfjsLib.getDocument(PDF_FILE).promise;
-    } catch (err) {
-      showError(`Could not open the PDF at "${PDF_FILE}". Check the path in books.json and that the file was uploaded.`);
-      return;
-    }
-
-    TOTAL_PAGES = pdf.numPages;
-    const TARGET_WIDTH = 850; // render resolution per page, in px — lower = faster
-
-    if (loaderLabel) loaderLabel.textContent = `Rendering page 0 / ${TOTAL_PAGES}…`;
-
-    // Reassure on slow connections / big files instead of looking frozen.
-    const slowTimer = setTimeout(() => {
-      if (loaderLabel) loaderLabel.textContent += ' (large file — still working)';
-    }, 12000);
-    const verySlowTimer = setTimeout(() => {
-      if (loaderLabel) loaderLabel.textContent = 'Still rendering — if this doesn\'t finish soon, the PDF may be too large. Try compressing it further.';
-    }, 40000);
-
-    let renderedCount = 0;
-    const canvasResults = new Array(TOTAL_PAGES);
-
-    async function renderOnePage(i){
-      const page = await pdf.getPage(i);
-      const baseViewport = page.getViewport({ scale: 1 });
-      const scale = TARGET_WIDTH / baseViewport.width;
-      const viewport = page.getViewport({ scale });
-
-      const canvas = document.createElement('canvas');
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-      const ctx = canvas.getContext('2d');
-      await page.render({ canvasContext: ctx, viewport }).promise;
-
-      canvasResults[i - 1] = canvas;
-      renderedCount++;
-      if (loaderLabel) loaderLabel.textContent = `Rendering page ${renderedCount} / ${TOTAL_PAGES}…`;
-    }
-
-    try {
-      // Render a handful of pages at once instead of one-by-one — much faster,
-      // still gentle enough not to choke the browser on a big magazine.
-      const CONCURRENCY = 4;
-      let nextIndex = 1;
-      async function worker(){
-        while (nextIndex <= TOTAL_PAGES){
-          const i = nextIndex++;
-          await renderOnePage(i);
+        try {
+          for (let index = 1; index <= TOTAL_PAGES; index += 1) {
+            const page = makePageShell(index, index === 1 || index === TOTAL_PAGES);
+            const image = document.createElement("img");
+            image.src = pageSrc(index);
+            image.draggable = false;
+            image.alt = "Page " + index;
+            page.insertBefore(image, page.firstChild);
+            bookEl.appendChild(page);
+            pageEls.push(page);
+          }
+        } catch (error) {
+          console.error(error);
+          showError("Something went wrong loading the page images. Check the folder path and file names in books.json.");
+          return;
         }
       }
-      await Promise.all(Array.from({ length: Math.min(CONCURRENCY, TOTAL_PAGES) }, worker));
-    } catch (err) {
-      clearTimeout(slowTimer); clearTimeout(verySlowTimer);
-      console.error(err);
-      showError(`Something went wrong rendering the PDF (${err.message || err}). Try a smaller/more compressed file, or reload.`);
-      return;
-    }
 
-    clearTimeout(slowTimer); clearTimeout(verySlowTimer);
-
-    for (let i = 1; i <= TOTAL_PAGES; i++){
-      const isCover = (i === 1 || i === TOTAL_PAGES);
-      const div = makePageShell(i, isCover);
-      div.insertBefore(canvasResults[i - 1], div.firstChild);
-      bookEl.appendChild(div);
-      pageEls.push(div);
-    }
-  } else {
-    try {
-      for (let i = 1; i <= TOTAL_PAGES; i++){
-        const isCover = (i === 1 || i === TOTAL_PAGES);
-        const div = makePageShell(i, isCover);
-
-        const img = document.createElement('img');
-        img.src = pageSrc(i);
-        img.draggable = false;
-        img.alt = `Page ${i}`;
-        div.insertBefore(img, div.firstChild);
-
-        bookEl.appendChild(div);
-        pageEls.push(div);
+      if (!window.St || !window.St.PageFlip) {
+        showError("The flipbook library failed to load — check your internet connection and reload.");
+        return;
       }
-    } catch (err) {
-      console.error(err);
-      showError(`Something went wrong loading the page images (${err.message || err}). Check the folder path and file names in books.json.`);
-      return;
-    }
-  }
 
-  // US Letter aspect ratio (612 x 792 pt = 8.5" x 11") — keeps single pages
-  // and double-page spreads proportioned correctly instead of stretched.
-  const SINGLE_W = 612, SINGLE_H = 792;
+      const pageFlip = new St.PageFlip(bookEl, {
+        width: 612,
+        height: 792,
+        size: "stretch",
+        minWidth: 180,
+        maxWidth: 1000,
+        minHeight: 233,
+        maxHeight: 1294,
+        maxShadowOpacity: .4,
+        showCover: true,
+        mobileScrollSupport: false,
+        usePortrait: true,
+        flippingTime: 700,
+        drawShadow: true
+      });
+      pageFlip.loadFromHTML(pageEls);
 
-  const pageFlip = new St.PageFlip(bookEl, {
-    width: SINGLE_W,
-    height: SINGLE_H,
-    size: 'stretch',
-    minWidth: 180,
-    maxWidth: 1000,
-    minHeight: 233,
-    maxHeight: 1294,
-    maxShadowOpacity: 0.55,
-    showCover: true,
-    mobileScrollSupport: false,
-    usePortrait: true,
-    flippingTime: 700,
-    drawShadow: true,
-  });
+      const loader = document.getElementById("loader");
+      const prevBtn = document.getElementById("prevBtn");
+      const nextBtn = document.getElementById("nextBtn");
+      const prevBarBtn = document.getElementById("prevBarBtn");
+      const nextBarBtn = document.getElementById("nextBarBtn");
+      const firstBtn = document.getElementById("firstBtn");
+      const lastBtn = document.getElementById("lastBtn");
+      const fsBtn = document.getElementById("fsBtn");
+      const indicator = document.getElementById("pageIndicator");
+      const rail = document.getElementById("rail");
+      const railFill = document.getElementById("railFill");
+      const stage = document.getElementById("stage");
 
-  pageFlip.loadFromHTML(pageEls);
+      function updateUI() {
+        const current = pageFlip.getCurrentPageIndex();
+        const total = pageFlip.getPageCount();
+        indicator.textContent = (current + 1) + " / " + total;
+        railFill.style.width = ((current + 1) / total * 100) + "%";
+        rail.setAttribute("aria-valuemax", total);
+        rail.setAttribute("aria-valuenow", current + 1);
+        prevBtn.classList.toggle("disabled", current <= 0);
+        prevBarBtn.classList.toggle("disabled", current <= 0);
+        nextBtn.classList.toggle("disabled", current >= total - 1);
+        nextBarBtn.classList.toggle("disabled", current >= total - 1);
+      }
 
-  // ---- 3. UI wiring ----
-  const loader = document.getElementById('loader');
-  const prevBtn = document.getElementById('prevBtn');
-  const nextBtn = document.getElementById('nextBtn');
-  const firstBtn = document.getElementById('firstBtn');
-  const lastBtn = document.getElementById('lastBtn');
-  const fsBtn = document.getElementById('fsBtn');
-  const indicator = document.getElementById('pageIndicator');
-  const rail = document.getElementById('rail');
-  const railFill = document.getElementById('railFill');
-  const stage = document.getElementById('stage');
+      pageFlip.on("init", function () {
+        updateUI();
+        loader.style.opacity = "0";
+        setTimeout(function () { loader.style.display = "none"; }, 500);
+      });
+      pageFlip.on("flip", updateUI);
 
-  function updateUI(){
-    const cur = pageFlip.getCurrentPageIndex();
-    const total = pageFlip.getPageCount();
-    indicator.textContent = `${cur + 1} / ${total}`;
-    railFill.style.width = `${((cur + 1) / total) * 100}%`;
-    prevBtn.classList.toggle('disabled', cur <= 0);
-    nextBtn.classList.toggle('disabled', cur >= total - 1);
-  }
+      prevBtn.addEventListener("click", function () { pageFlip.flipPrev(); });
+      prevBarBtn.addEventListener("click", function () { pageFlip.flipPrev(); });
+      nextBtn.addEventListener("click", function () { pageFlip.flipNext(); });
+      nextBarBtn.addEventListener("click", function () { pageFlip.flipNext(); });
+      firstBtn.addEventListener("click", function () { pageFlip.flip(0); });
+      lastBtn.addEventListener("click", function () { pageFlip.flip(pageFlip.getPageCount() - 1); });
 
-  pageFlip.on('init', () => {
-    updateUI();
-    loader.style.opacity = '0';
-    setTimeout(() => { loader.style.display = 'none'; }, 500);
-  });
-  pageFlip.on('flip', updateUI);
+      window.addEventListener("keydown", function (event) {
+        if (event.key === "ArrowRight") pageFlip.flipNext();
+        if (event.key === "ArrowLeft") pageFlip.flipPrev();
+      });
 
-  prevBtn.addEventListener('click', () => pageFlip.flipPrev());
-  nextBtn.addEventListener('click', () => pageFlip.flipNext());
-  firstBtn.addEventListener('click', () => pageFlip.flip(0));
-  lastBtn.addEventListener('click', () => pageFlip.flip(pageFlip.getPageCount() - 1));
+      function flipFromRail(clientX) {
+        const rect = rail.getBoundingClientRect();
+        const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+        pageFlip.flip(Math.round(ratio * (pageFlip.getPageCount() - 1)));
+      }
+      rail.addEventListener("click", function (event) { flipFromRail(event.clientX); });
+      rail.addEventListener("keydown", function (event) {
+        if (event.key === "ArrowRight") pageFlip.flipNext();
+        if (event.key === "ArrowLeft") pageFlip.flipPrev();
+      });
 
-  window.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowRight') pageFlip.flipNext();
-    if (e.key === 'ArrowLeft') pageFlip.flipPrev();
-  });
+      fsBtn.addEventListener("click", function () {
+        if (!document.fullscreenElement) {
+          const request = stage.requestFullscreen || stage.webkitRequestFullscreen;
+          if (request) request.call(stage);
+        } else {
+          const exit = document.exitFullscreen || document.webkitExitFullscreen;
+          if (exit) exit.call(document);
+        }
+      });
 
-  rail.addEventListener('click', (e) => {
-    const rect = rail.getBoundingClientRect();
-    const ratio = (e.clientX - rect.left) / rect.width;
-    const target = Math.round(ratio * (pageFlip.getPageCount() - 1));
-    pageFlip.flip(target);
-  });
+      function handleFullscreenChange() {
+        setZoom(1);
+        setTimeout(function () {
+          window.dispatchEvent(new Event("resize"));
+          if (typeof pageFlip.update === "function") pageFlip.update();
+        }, 150);
+      }
+      document.addEventListener("fullscreenchange", handleFullscreenChange);
+      document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+      document.getElementById("expandBtn").addEventListener("click", function () {
+        window.open(location.href, "_blank", "noopener");
+      });
+      bookEl.addEventListener("contextmenu", function (event) { event.preventDefault(); });
+      bookEl.addEventListener("dragstart", function (event) { event.preventDefault(); });
 
-  fsBtn.addEventListener('click', () => {
-    if (!document.fullscreenElement){
-      stage.requestFullscreen?.() || stage.webkitRequestFullscreen?.();
-    } else {
-      document.exitFullscreen?.() || document.webkitExitFullscreen?.();
-    }
-  });
+      const zoomLevelEl = document.getElementById("zoomLevel");
+      const zoomInBtn = document.getElementById("zoomInBtn");
+      const zoomOutBtn = document.getElementById("zoomOutBtn");
+      const bookWrap = document.getElementById("bookWrap");
+      const panOverlay = document.getElementById("panOverlay");
+      const MIN_ZOOM = .5;
+      const MAX_ZOOM = 3;
+      let zoom = 1;
+      let panX = 0;
+      let panY = 0;
 
-  // Entering/exiting fullscreen changes the available box size. Reset any
-  // zoom/pan (it was sized for the old box) and nudge the book to
-  // recompute against the new one — some browsers don't reliably fire a
-  // resize/ResizeObserver tick right at the fullscreen transition.
-  function handleFullscreenChange(){
-    setZoom(1);
-    setTimeout(() => {
-      window.dispatchEvent(new Event('resize'));
-      if (typeof pageFlip.update === 'function') pageFlip.update();
-    }, 150);
-  }
-  document.addEventListener('fullscreenchange', handleFullscreenChange);
-  document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+      function clamp(value, min, max) { return Math.min(max, Math.max(min, value)); }
+      function clampPan() {
+        const wrap = bookWrap.getBoundingClientRect();
+        const maxX = Math.max(0, wrap.width * (zoom - 1) / 2);
+        const maxY = Math.max(0, wrap.height * (zoom - 1) / 2);
+        panX = clamp(panX, -maxX, maxX);
+        panY = clamp(panY, -maxY, maxY);
+      }
 
-  document.getElementById('expandBtn').addEventListener('click', () => {
-    window.open(location.href, '_blank', 'noopener');
-  });
+      function applyZoom() {
+        clampPan();
+        bookEl.style.transform = "translate(" + panX + "px, " + panY + "px) scale(" + zoom + ")";
+        const isZoomed = zoom > 1;
+        bookEl.classList.toggle("zoomed", isZoomed);
+        bookEl.style.pointerEvents = isZoomed ? "none" : "";
+        panOverlay.classList.toggle("active", isZoomed);
+        zoomLevelEl.textContent = Math.round(zoom * 100) + "%";
+        zoomOutBtn.classList.toggle("disabled", zoom <= MIN_ZOOM);
+        zoomInBtn.classList.toggle("disabled", zoom >= MAX_ZOOM);
+      }
 
-  bookEl.addEventListener('contextmenu', (e) => e.preventDefault());
-  bookEl.addEventListener('dragstart', (e) => e.preventDefault());
+      function setZoom(next, anchorX, anchorY) {
+        const nextZoom = clamp(next, MIN_ZOOM, MAX_ZOOM);
+        if (nextZoom === zoom) return;
+        if (nextZoom === 1) {
+          panX = 0;
+          panY = 0;
+        } else if (typeof anchorX === "number" && typeof anchorY === "number") {
+          const scale = nextZoom / zoom;
+          panX = anchorX - (anchorX - panX) * scale;
+          panY = anchorY - (anchorY - panY) * scale;
+        }
+        zoom = nextZoom;
+        applyZoom();
+      }
 
-  // ---- 4. Zoom & pan ----
-  // Zoom is a visual scale on top of the flipbook. At zoom 1 (default),
-  // dragging a page corner flips it as normal. Once zoomed in, dragging
-  // pans around the enlarged page instead (page flip buttons still work).
-  const zoomLevelEl = document.getElementById('zoomLevel');
-  const zoomInBtn = document.getElementById('zoomInBtn');
-  const zoomOutBtn = document.getElementById('zoomOutBtn');
-  const bookWrap = document.getElementById('bookWrap');
-  const panOverlay = document.getElementById('panOverlay');
-  const MIN_ZOOM = 0.5, MAX_ZOOM = 3;
-  let zoom = 1, panX = 0, panY = 0;
+      function zoomAtCenter(factor) {
+        setZoom(zoom * factor, 0, 0);
+      }
+      zoomInBtn.addEventListener("click", function () { zoomAtCenter(1.25); });
+      zoomOutBtn.addEventListener("click", function () { zoomAtCenter(1 / 1.25); });
 
-  function clampPan(){
-    const wrap = bookWrap.getBoundingClientRect();
-    const maxX = Math.max(0, (wrap.width * (zoom - 1)) / 2);
-    const maxY = Math.max(0, (wrap.height * (zoom - 1)) / 2);
-    panX = Math.min(maxX, Math.max(-maxX, panX));
-    panY = Math.min(maxY, Math.max(-maxY, panY));
-  }
+      bookWrap.addEventListener("wheel", function (event) {
+        event.preventDefault();
+        const rect = bookWrap.getBoundingClientRect();
+        const dy = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 100 : 1);
+        const nextZoom = zoom * Math.exp(-dy * .0015);
+        const anchorX = event.clientX - (rect.left + rect.width / 2);
+        const anchorY = event.clientY - (rect.top + rect.height / 2);
+        setZoom(nextZoom, anchorX, anchorY);
+      }, { passive: false });
 
-  function applyZoom(){
-    clampPan();
-    bookEl.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
-    const isZoomed = zoom > 1;
-    bookEl.classList.toggle('zoomed', isZoomed);
-    // While zoomed, hand pointer events to the pan overlay so dragging
-    // never gets picked up by page-flip's own corner-drag gesture.
-    bookEl.style.pointerEvents = isZoomed ? 'none' : '';
-    panOverlay.classList.toggle('active', isZoomed);
-    zoomLevelEl.textContent = `${Math.round(zoom * 100)}%`;
-    zoomOutBtn.classList.toggle('disabled', zoom <= MIN_ZOOM);
-    zoomInBtn.classList.toggle('disabled', zoom >= MAX_ZOOM);
-  }
+      let dragging = false;
+      let dragStartX = 0;
+      let dragStartY = 0;
+      let panStartX = 0;
+      let panStartY = 0;
 
-  function setZoom(next){
-    const clamped = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, next));
-    if (clamped === 1){ panX = 0; panY = 0; }
-    zoom = clamped;
-    applyZoom();
-  }
+      panOverlay.addEventListener("pointerdown", function (event) {
+        dragging = true;
+        panOverlay.classList.add("panning");
+        dragStartX = event.clientX;
+        dragStartY = event.clientY;
+        panStartX = panX;
+        panStartY = panY;
+        panOverlay.setPointerCapture(event.pointerId);
+      });
+      panOverlay.addEventListener("pointermove", function (event) {
+        if (!dragging) return;
+        panX = panStartX + event.clientX - dragStartX;
+        panY = panStartY + event.clientY - dragStartY;
+        applyZoom();
+      });
+      function endDrag() {
+        if (!dragging) return;
+        dragging = false;
+        panOverlay.classList.remove("panning");
+      }
+      panOverlay.addEventListener("pointerup", endDrag);
+      panOverlay.addEventListener("pointercancel", endDrag);
+      panOverlay.addEventListener("dblclick", function () { setZoom(1); });
 
-  zoomInBtn.addEventListener('click', () => setZoom(zoom + 0.5));
-  zoomOutBtn.addEventListener('click', () => setZoom(zoom - 0.5));
+      let pinchStartDistance = null;
+      let pinchStartZoom = 1;
+      bookWrap.addEventListener("touchmove", function (event) {
+        if (event.touches.length !== 2) return;
+        event.preventDefault();
+        const first = event.touches[0];
+        const second = event.touches[1];
+        const distance = Math.hypot(second.clientX - first.clientX, second.clientY - first.clientY);
+        if (pinchStartDistance === null) {
+          pinchStartDistance = distance;
+          pinchStartZoom = zoom;
+          return;
+        }
+        const rect = bookWrap.getBoundingClientRect();
+        const centerX = (first.clientX + second.clientX) / 2 - (rect.left + rect.width / 2);
+        const centerY = (first.clientY + second.clientY) / 2 - (rect.top + rect.height / 2);
+        setZoom(pinchStartZoom * distance / pinchStartDistance, centerX, centerY);
+      }, { passive: false });
+      bookWrap.addEventListener("touchend", function (event) {
+        if (event.touches.length < 2) pinchStartDistance = null;
+      });
+      bookEl.addEventListener("dblclick", function () { setZoom(2, 0, 0); });
 
-  bookWrap.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? -0.25 : 0.25;
-    setZoom(zoom + delta);
-  }, { passive: false });
-
-  // Drag to pan (only reachable when zoomed — overlay is inert otherwise)
-  let dragging = false, dragStartX = 0, dragStartY = 0, panStartX = 0, panStartY = 0;
-
-  panOverlay.addEventListener('pointerdown', (e) => {
-    dragging = true;
-    panOverlay.classList.add('panning');
-    dragStartX = e.clientX; dragStartY = e.clientY;
-    panStartX = panX; panStartY = panY;
-    panOverlay.setPointerCapture(e.pointerId);
-  });
-  panOverlay.addEventListener('pointermove', (e) => {
-    if (!dragging) return;
-    panX = panStartX + (e.clientX - dragStartX);
-    panY = panStartY + (e.clientY - dragStartY);
-    applyZoom();
-  });
-  function endDrag(){
-    if (!dragging) return;
-    dragging = false;
-    panOverlay.classList.remove('panning');
-  }
-  panOverlay.addEventListener('pointerup', endDrag);
-  panOverlay.addEventListener('pointercancel', endDrag);
-  panOverlay.addEventListener('dblclick', () => setZoom(1));
-
-  // Pinch to zoom (touch) — listens on bookWrap since the overlay is
-  // inert at zoom 1, but a pinch is exactly how you'd zoom in from there.
-  let pinchStartDist = null, pinchStartZoom = 1;
-  bookWrap.addEventListener('touchmove', (e) => {
-    if (e.touches.length !== 2) return;
-    e.preventDefault();
-    const [t1, t2] = e.touches;
-    const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
-    if (pinchStartDist === null){
-      pinchStartDist = dist;
-      pinchStartZoom = zoom;
-      return;
-    }
-    setZoom(pinchStartZoom * (dist / pinchStartDist));
-  }, { passive: false });
-  bookWrap.addEventListener('touchend', (e) => {
-    if (e.touches.length < 2) pinchStartDist = null;
-  });
-
-  // Double-click on the book itself (zoom 1) to zoom in
-  bookEl.addEventListener('dblclick', () => setZoom(2));
-
-  window.addEventListener('keydown', (e) => {
-    if (e.key === '+' || e.key === '=') setZoom(zoom + 0.5);
-    if (e.key === '-') setZoom(zoom - 0.5);
-    if (e.key === '0') setZoom(1);
-  });
-
-})();
-</script>
+      window.addEventListener("keydown", function (event) {
+        if (event.key === "+" || event.key === "=") zoomAtCenter(1.25);
+        if (event.key === "-") zoomAtCenter(1 / 1.25);
+        if (event.key === "0") setZoom(1);
+      });
+    })();
+  </script>
 </body>
 </html>
