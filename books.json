@@ -1,4 +1,14 @@
 [
+  {
+    "slug": "judithowen",
+    "title": "Judith Owen Edition",
+    "type": "images",
+    "folder": "books/judithowen/pages",
+    "totalPages": 34,
+    "ext": "jpg",
+    "pattern": "page{n}",
+    "cover": "books/judithowen/pages/page01.jpg"
+  },
  {
     "slug": "cassdifonte",
     "title": "Cass DiFonte Edition",
