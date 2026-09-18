@@ -1,5 +1,15 @@
 [
  {
+    "slug": "cassdifonte",
+    "title": "Cass DiFonte Edition",
+    "type": "images",
+    "folder": "books/cassdifonte/pages",
+    "totalPages": 34,
+    "ext": "jpg",
+    "pattern": "page{n}",
+    "cover": "books/cassdifonte/pages/page01.jpg"
+  },
+ {
     "slug": "milyam",
     "title": "Milyam Edition",
     "type": "images",
