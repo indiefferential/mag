@@ -1,4 +1,14 @@
 [
+   {
+    "slug": "fianyxx",
+    "title": "Fia Nyxx Edition",
+    "type": "images",
+    "folder": "books/fianyxx/pages",
+    "totalPages": 34,
+    "ext": "jpg",
+    "pattern": "page{n}",
+    "cover": "books/fianyxx/pages/page01.jpg"
+  },
   {
     "slug": "judithowen",
     "title": "Judith Owen Edition",
