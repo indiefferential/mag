@@ -1,4 +1,14 @@
 [
+ {
+    "slug": "wnsep3",
+    "title": "WN — Sep 3",
+    "type": "images",
+    "folder": "books/wnsep3/pages",
+    "totalPages": 34,
+    "ext": "jpg",
+    "pattern": "page{n}",
+    "cover": "books/wnsep3/pages/page01.jpg"
+  },
   {
     "slug": "fianyxx",
     "title": "Fia Nyxx Edition",
