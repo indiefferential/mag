@@ -1,5 +1,15 @@
 [
  {
+    "slug": "wnna",
+    "title": "WN — New Artists",
+    "type": "images",
+    "folder": "books/wnna/pages",
+    "totalPages": 34,
+    "ext": "jpg",
+    "pattern": "page{n}",
+    "cover": "books/wnna/pages/page01.jpg"
+  },
+ {
     "slug": "wnsep3",
     "title": "WN — Sep 3",
     "type": "images",
