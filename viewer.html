@@ -480,10 +480,6 @@
           "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/legacy/build/pdf.worker.min.js";
       }
 
-      // Max zoom the viewer allows — used below to size PDF canvases so
-      // pages stay sharp even at full zoom instead of just being CSS-scaled up.
-      const MAX_ZOOM = 3;
-
       function pad(n) { return String(n).padStart(2, "0"); }
       function showError(message) {
         document.getElementById("loader").style.display = "none";
@@ -583,14 +579,7 @@
         }
 
         TOTAL_PAGES = pdf.numPages;
-
-        // Render at a resolution that stays sharp up to MAX_ZOOM, factoring
-        // in device pixel ratio (capped at 2x so we don't over-render on
-        // very high-DPI screens). Previously this was a flat 850px, which
-        // is why zoomed-in pages looked blurry — the canvas itself was low-res
-        // and the zoom was just CSS-stretching it.
-        const TARGET_WIDTH = 850 * Math.min(window.devicePixelRatio || 1, 2) * MAX_ZOOM;
-
+        const TARGET_WIDTH = 850;
         if (loaderLabel) loaderLabel.textContent = "Rendering page 0 / " + TOTAL_PAGES + "…";
 
         const slowTimer = setTimeout(function () {
@@ -618,10 +607,7 @@
         }
 
         try {
-          // Larger canvases take more memory/time per page, so trim concurrency
-          // a bit compared to the old low-res version to avoid spiking memory
-          // on long issues.
-          const concurrency = 3;
+          const concurrency = 4;
           let nextIndex = 1;
           async function worker() {
             while (nextIndex <= TOTAL_PAGES) {
@@ -775,6 +761,7 @@
       const bookWrap = document.getElementById("bookWrap");
       const panOverlay = document.getElementById("panOverlay");
       const MIN_ZOOM = .5;
+      const MAX_ZOOM = 3;
       let zoom = 1;
       let panX = 0;
       let panY = 0;
