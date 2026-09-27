@@ -1,10 +1,14 @@
 [
- {
-  "slug": "wnsep4",
-  "title": "WN Sep 4",
-  "type": "pdf",
-  "file": "books/myissue/wnsep4.pdf"
-},
+  {
+    "slug": "wnsep4",
+    "title": "WN — Sep 4",
+    "type": "images",
+    "folder": "books/wnsep4/pages",
+    "totalPages": 34,
+    "ext": "jpg",
+    "pattern": "page{n}",
+    "cover": "books/wnsep4/pages/page01.jpg"
+  },
  {
     "slug": "wnna",
     "title": "WN — New Artists",
