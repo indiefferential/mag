@@ -1,4 +1,14 @@
 [
+   {
+    "slug": "taravan",
+    "title": "WN — Tara Van",
+    "type": "images",
+    "folder": "books/taravan/pages",
+    "totalPages": 34,
+    "ext": "jpg",
+    "pattern": "page{n}",
+    "cover": "books/taravan/pages/page01.jpg"
+  },
   {
     "slug": "wnoct1",
     "title": "WN — Oct 1",
