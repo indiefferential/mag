@@ -1,4 +1,14 @@
 [
+    {
+    "slug": "wnoct2",
+    "title": "WN — Oct 2",
+    "type": "images",
+    "folder": "books/wnoct2/pages",
+    "totalPages": 34,
+    "ext": "jpg",
+    "pattern": "page{n}",
+    "cover": "books/wnoct2/pages/page01.jpg"
+  },
   {
     "slug": "katia",
     "title": "Katia Pojidaeva Edition",
