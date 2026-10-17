@@ -1,4 +1,14 @@
 [
+     {
+    "slug": "rydgren",
+    "title": "WN — Sebastian Rydgren",
+    "type": "images",
+    "folder": "books/rydgren/pages",
+    "totalPages": 34,
+    "ext": "jpg",
+    "pattern": "page{n}",
+    "cover": "books/rydgren/pages/page01.jpg"
+  },
     {
     "slug": "wnoct2",
     "title": "WN — Oct 2",
