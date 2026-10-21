@@ -1,4 +1,14 @@
 [
+      {
+    "slug": "radarfield",
+    "title": "Radarfield Edition",
+    "type": "images",
+    "folder": "books/radarfield/pages",
+    "totalPages": 34,
+    "ext": "jpg",
+    "pattern": "page{n}",
+    "cover": "books/radarfield/pages/page01.jpg"
+  },
      {
     "slug": "rydgren",
     "title": "WN — Sebastian Rydgren",
