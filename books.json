@@ -1,5 +1,15 @@
 [
       {
+    "slug": "wnoct3",
+    "title": "WN — Oct 3",
+    "type": "images",
+    "folder": "books/wnoct3/pages",
+    "totalPages": 34,
+    "ext": "jpg",
+    "pattern": "page{n}",
+    "cover": "books/wnoct3/pages/page01.jpg"
+  },
+      {
     "slug": "radarfield",
     "title": "Radarfield Edition",
     "type": "images",
