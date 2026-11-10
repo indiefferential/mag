@@ -1,4 +1,14 @@
 [
+	{
+    "slug": "wnnov2",
+    "title": "WN — Nov 2",
+    "type": "images",
+    "folder": "books/wnnov2/pages",
+    "totalPages": 34,
+    "ext": "jpg",
+    "pattern": "page{n}",
+    "cover": "books/wnnov2/pages/page01.jpg"
+  },
   	{
     "slug": "wnnov1",
     "title": "WN — Nov 1",
