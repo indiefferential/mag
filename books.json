@@ -29,6 +29,16 @@
     "pattern": "page{n}",
     "cover": "books/wnnov1/pages/page01.jpg"
   },
+	{
+    "slug": "spinors",
+    "title": "Spinors",
+    "type": "images",
+    "folder": "books/spinors/pages",
+    "totalPages": 34,
+    "ext": "jpg",
+    "pattern": "page{n}",
+    "cover": "books/spinors/pages/page01.jpg"
+  },
          {
     "slug": "wnoct5",
     "title": "WN — Oct 5",
