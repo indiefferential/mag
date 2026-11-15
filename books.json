@@ -30,6 +30,16 @@
     "cover": "books/wnnov1/pages/page01.jpg"
   },
 	{
+    "slug": "stephanie",
+    "title": "Stephanie Happening",
+    "type": "images",
+    "folder": "books/stephanie/pages",
+    "totalPages": 34,
+    "ext": "jpg",
+    "pattern": "page{n}",
+    "cover": "books/stephanie/pages/page01.jpg"
+  },
+	{
     "slug": "spinors",
     "title": "Spinors",
     "type": "images",
