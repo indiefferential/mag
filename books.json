@@ -40,6 +40,16 @@
     "cover": "books/wnnov1/pages/page01.jpg"
   },
 	{
+    "slug": "devyncrimson",
+    "title": "Devyn Crimson",
+    "type": "images",
+    "folder": "books/devyncrimson/pages",
+    "totalPages": 34,
+    "ext": "jpg",
+    "pattern": "page{n}",
+    "cover": "books/devyncrimson/pages/page01.jpg"
+  },
+	{
     "slug": "stephanie",
     "title": "Stephanie Happening",
     "type": "images",
