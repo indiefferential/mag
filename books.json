@@ -1,5 +1,15 @@
 [
 	{
+    "slug": "wnnov4",
+    "title": "WN — Nov 4",
+    "type": "images",
+    "folder": "books/wnnov4/pages",
+    "totalPages": 34,
+    "ext": "jpg",
+    "pattern": "page{n}",
+    "cover": "books/wnnov4/pages/page01.jpg"
+  },
+	{
     "slug": "wnnov3",
     "title": "WN — Nov 3",
     "type": "images",
